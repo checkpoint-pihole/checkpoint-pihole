@@ -1,4 +1,4 @@
-"""System-level service utilities for Pi-hole Checkpoint."""
+"""System-level service utilities for Checkpoint Pi-hole."""
 
 import logging
 import os

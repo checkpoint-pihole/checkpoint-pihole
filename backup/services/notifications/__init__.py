@@ -1,4 +1,4 @@
-"""Notification services for Pi-hole Checkpoint."""
+"""Notification services for Checkpoint Pi-hole."""
 
 from .base import NotificationEvent, NotificationPayload, NotificationProvider
 from .service import NotificationService, safe_send_notification

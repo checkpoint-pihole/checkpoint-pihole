@@ -1,4 +1,4 @@
-"""URL configuration for pihole-checkpoint project."""
+"""URL configuration for checkpoint-pihole project."""
 
 from django.contrib import admin
 from django.urls import include, path

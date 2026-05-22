@@ -7,7 +7,7 @@
 
 ## Context
 
-Pi-hole Checkpoint currently supports creating and downloading backups via the Pi-hole v6 Teleporter API, but users cannot restore backups directly through the application. To restore, users must:
+Checkpoint Pi-hole currently supports creating and downloading backups via the Pi-hole v6 Teleporter API, but users cannot restore backups directly through the application. To restore, users must:
 
 1. Download the backup ZIP from the app
 2. Log into Pi-hole admin UI

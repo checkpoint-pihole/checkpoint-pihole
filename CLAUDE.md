@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pi-hole Checkpoint is a Django 5.x web application for backing up Pi-hole v6 instances via the Teleporter API. It runs as a single Docker container with both the web UI (Gunicorn) and scheduler (APScheduler).
+Checkpoint Pi-hole is a Django 5.x web application for backing up Pi-hole v6 instances via the Teleporter API. It runs as a single Docker container with both the web UI (Gunicorn) and scheduler (APScheduler).
 
 **Pi-hole v6 only** - Uses session-based authentication (not v5 API keys).
 
@@ -18,16 +18,16 @@ docker compose up --build
 docker compose up -d
 
 # View logs
-docker compose logs -f pihole-checkpoint
+docker compose logs -f checkpoint-pihole
 
 # Run Django management commands
-docker compose exec pihole-checkpoint python manage.py <command>
+docker compose exec checkpoint-pihole python manage.py <command>
 
 # Run migrations manually
-docker compose exec pihole-checkpoint python manage.py migrate
+docker compose exec checkpoint-pihole python manage.py migrate
 
 # Create a Django shell
-docker compose exec pihole-checkpoint python manage.py shell
+docker compose exec checkpoint-pihole python manage.py shell
 
 # Stop services
 docker compose down

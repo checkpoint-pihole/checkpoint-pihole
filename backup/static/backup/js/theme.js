@@ -1,5 +1,5 @@
 const ThemeManager = {
-    STORAGE_KEY: 'pihole-checkpoint-theme',
+    STORAGE_KEY: 'checkpoint-pihole-theme',
 
     getPreference() {
         const stored = localStorage.getItem(this.STORAGE_KEY);

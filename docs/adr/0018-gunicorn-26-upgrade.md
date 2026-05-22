@@ -140,7 +140,7 @@ this configuration.
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | Reverse proxy emits a request shape 26.0 rejects | Low | Medium | Caddy/nginx/Traefik all normalize; smoke through the proxy in staging before merging |
-| Container shutdown semantics regress (SIGTERM forwarding) | Low | Medium | `docker compose stop pihole-checkpoint`; expect graceful drain in logs, no SIGKILL after grace period |
+| Container shutdown semantics regress (SIGTERM forwarding) | Low | Medium | `docker compose stop checkpoint-pihole`; expect graceful drain in logs, no SIGKILL after grace period |
 | New C parser surfaces bug we don't have CI coverage for | Low | Low | Smoke a backup-zip download (large response body); regression would manifest as truncated/corrupt download |
 | Health check breaks (curl loop/probe) | Medium | Low | Verify the existing healthcheck still returns 200 from inside the container; trivial fix if it doesn't |
 | `--access-logfile -` formatting differs subtly | Low | Low | Smoke confirms stdout still flows; downstream log scrapers are out of scope |
@@ -160,7 +160,7 @@ this configuration.
     4. `curl -i http://localhost:8000/` — expect 200 (or 302 → /login/ if auth on)
     5. `curl -i -X POST http://localhost:8000/backup/run/<config_id>/` (with CSRF token) — expect a 2xx and a `BackupRecord` row appears
     6. Download the latest backup ZIP via the dashboard — confirm bytes match (`sha256sum` against the stored file)
-    7. `docker compose stop pihole-checkpoint` — observe in logs: `Handling signal: term`, workers gracefully exit, container exits 0 within `graceful_timeout` (default 30s). No SIGKILL.
+    7. `docker compose stop checkpoint-pihole` — observe in logs: `Handling signal: term`, workers gracefully exit, container exits 0 within `graceful_timeout` (default 30s). No SIGKILL.
 - [ ] If smoke is green: commit, push, open PR. PR body links this ADR.
 - [ ] After merge, update this ADR's Status to `Implemented`.
 

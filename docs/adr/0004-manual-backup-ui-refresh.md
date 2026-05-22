@@ -7,7 +7,7 @@
 
 ## Context
 
-Pi-hole Checkpoint allows users to trigger manual backups via a "Backup Now" button. The current implementation:
+Checkpoint Pi-hole allows users to trigger manual backups via a "Backup Now" button. The current implementation:
 
 1. `POST /api/backup/` calls `BackupService.create_backup()` synchronously
 2. Returns JSON with `success`, `backup_id`, `filename`

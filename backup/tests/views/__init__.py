@@ -1,1 +1,1 @@
-# View tests for Pi-hole Checkpoint
+# View tests for Checkpoint Pi-hole

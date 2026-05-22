@@ -7,7 +7,7 @@
 
 ## Context
 
-Pi-hole Checkpoint currently backs up a single Pi-hole v6 instance. While the data model was designed with multi-instance in mind (ADR-0001, Section 5), the UI and credential system are hardcoded to single-instance:
+Checkpoint Pi-hole currently backs up a single Pi-hole v6 instance. While the data model was designed with multi-instance in mind (ADR-0001, Section 5), the UI and credential system are hardcoded to single-instance:
 
 - `PiholeConfig` has a `name` field and `BackupRecord` has a foreign key to it
 - The scheduler creates per-config jobs via `run_backup_job_for_config(config_id)` (ADR-0013, Issue 1)

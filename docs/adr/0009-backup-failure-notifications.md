@@ -7,7 +7,7 @@
 
 ## Context
 
-Pi-hole Checkpoint creates automated backups on a schedule, but there's no way to alert users when backups fail. Silent failures are dangerous for any backup system - users may assume backups are working when they're not, leading to data loss during disaster recovery.
+Checkpoint Pi-hole creates automated backups on a schedule, but there's no way to alert users when backups fail. Silent failures are dangerous for any backup system - users may assume backups are working when they're not, leading to data loss during disaster recovery.
 
 Common failure scenarios:
 - Pi-hole unreachable (network issues, Pi-hole down)
@@ -200,7 +200,7 @@ class DiscordProvider(NotificationProvider):
                 {"name": "Pi-hole", "value": payload.pihole_name, "inline": True},
                 {"name": "Time", "value": payload.timestamp, "inline": True},
             ],
-            "footer": {"text": "Pi-hole Checkpoint"},
+            "footer": {"text": "Checkpoint Pi-hole"},
         }
 
         if payload.details:
@@ -228,7 +228,7 @@ class DiscordProvider(NotificationProvider):
             payload = NotificationPayload(
                 event=NotificationEvent.BACKUP_SUCCESS,
                 title="Test Notification",
-                message="Pi-hole Checkpoint notifications are working!",
+                message="Checkpoint Pi-hole notifications are working!",
                 pihole_name="Test",
                 timestamp="Now",
             )
@@ -374,7 +374,7 @@ class HomeAssistantProvider(NotificationProvider):
             headers = {}
         else:
             # REST API method
-            endpoint = f"{self.url}/api/events/pihole_checkpoint_notification"
+            endpoint = f"{self.url}/api/events/checkpoint_pihole_notification"
             headers = {"Authorization": f"Bearer {self.token}"}
 
         data = {

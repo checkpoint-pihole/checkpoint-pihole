@@ -1,6 +1,6 @@
 # Feature Ideas
 
-A collection of potential features and improvements for Pi-hole Checkpoint.
+A collection of potential features and improvements for Checkpoint Pi-hole.
 
 ## Backup & Restore
 

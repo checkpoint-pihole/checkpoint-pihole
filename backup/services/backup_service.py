@@ -51,7 +51,7 @@ class BackupService:
         # Fallback if name becomes empty
         safe_name = safe_name or "pihole"
 
-        return f"pihole_checkpoint_{safe_name}_{timestamp}_{unique_suffix}.zip"
+        return f"checkpoint_pihole_{safe_name}_{timestamp}_{unique_suffix}.zip"
 
     def _calculate_checksum(self, filepath: Path) -> str:
         """Calculate SHA256 checksum of a file."""

@@ -1,1 +1,1 @@
-# Integration tests for Pi-hole Checkpoint
+# Integration tests for Checkpoint Pi-hole

@@ -8,7 +8,7 @@
 
 ### Background
 
-Pi-hole Checkpoint needs optional authentication to protect the web UI. The design goal is Pi-hole-style simplicity: set a password, it just works. No usernames, no database-stored credentials, no extra configuration.
+Checkpoint Pi-hole needs optional authentication to protect the web UI. The design goal is Pi-hole-style simplicity: set a password, it just works. No usernames, no database-stored credentials, no extra configuration.
 
 ### Current State
 

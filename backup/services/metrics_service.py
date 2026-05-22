@@ -14,7 +14,7 @@ from backup.models import BackupRecord, PiholeConfig
 from backup.services.system_service import is_scheduler_running
 
 try:
-    _APP_VERSION = version("pihole-checkpoint")
+    _APP_VERSION = version("checkpoint-pihole")
 except PackageNotFoundError:
     _APP_VERSION = "unknown"
 
@@ -27,7 +27,7 @@ def build_registry() -> CollectorRegistry:
 
     info = Gauge(
         "pihole_info",
-        "Pi-hole Checkpoint build information.",
+        "Checkpoint Pi-hole build information.",
         ("version",),
         registry=registry,
     )

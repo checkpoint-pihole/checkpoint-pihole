@@ -8,7 +8,7 @@
 
 ## Context
 
-The Pi-hole Checkpoint application currently has no automated tests. As the codebase grows, we need a testing strategy to:
+The Checkpoint Pi-hole application currently has no automated tests. As the codebase grows, we need a testing strategy to:
 - Ensure reliability of backup operations
 - Prevent regressions when adding features
 - Validate Pi-hole API integration behavior
@@ -326,22 +326,22 @@ factory-boy>=3.3
 
 ```bash
 # Run all tests
-docker compose exec pihole-checkpoint pytest
+docker compose exec checkpoint-pihole pytest
 
 # Run with coverage
-docker compose exec pihole-checkpoint pytest --cov=backup --cov-report=term-missing
+docker compose exec checkpoint-pihole pytest --cov=backup --cov-report=term-missing
 
 # Run specific test file
-docker compose exec pihole-checkpoint pytest backup/tests/unit/test_pihole_client.py
+docker compose exec checkpoint-pihole pytest backup/tests/unit/test_pihole_client.py
 
 # Run tests matching pattern
-docker compose exec pihole-checkpoint pytest -k "test_authenticate"
+docker compose exec checkpoint-pihole pytest -k "test_authenticate"
 
 # Run with verbose output
-docker compose exec pihole-checkpoint pytest -v
+docker compose exec checkpoint-pihole pytest -v
 
 # Run in parallel (requires pytest-xdist)
-docker compose exec pihole-checkpoint pytest -n auto
+docker compose exec checkpoint-pihole pytest -n auto
 ```
 
 ---
