@@ -8,7 +8,7 @@
 
 ## Context
 
-The Pi-hole Checkpoint application currently loads all frontend assets from a CDN (jsDelivr):
+The Checkpoint Pi-hole application currently loads all frontend assets from a CDN (jsDelivr):
 
 | Asset | CDN URL | Version |
 |-------|---------|---------|
@@ -24,7 +24,7 @@ This creates several problems for self-hosted environments:
 4. **Latency**: CDN requests add loading time, especially on slow connections
 5. **Version control**: CDN assets could theoretically change (though versioned URLs mitigate this)
 
-Since Pi-hole Checkpoint is designed as a self-hosted, Dockerized application for local network use, it should work completely offline.
+Since Checkpoint Pi-hole is designed as a self-hosted, Dockerized application for local network use, it should work completely offline.
 
 ---
 

@@ -82,7 +82,7 @@ class TelegramProvider(NotificationProvider):
             payload = NotificationPayload(
                 event=NotificationEvent.BACKUP_SUCCESS,
                 title="Test Notification",
-                message="Pi-hole Checkpoint notifications are working!",
+                message="Checkpoint Pi-hole notifications are working!",
                 pihole_name="Test",
                 timestamp="Now",
             )

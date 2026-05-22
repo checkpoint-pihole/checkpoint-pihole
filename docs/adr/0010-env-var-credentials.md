@@ -7,7 +7,7 @@
 
 ## Context
 
-Pi-hole Checkpoint currently stores the Pi-hole password in the database using `django-encrypted-model-fields`. This approach:
+Checkpoint Pi-hole currently stores the Pi-hole password in the database using `django-encrypted-model-fields`. This approach:
 
 1. **Requires an encryption key** - Users must set `FIELD_ENCRYPTION_KEY` (32 characters) in their environment
 2. **Adds a dependency** - The `django-encrypted-model-fields` package must be maintained

@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Pi-hole Checkpoint{% endblock %}</title>
+    <title>{% block title %}Checkpoint Pi-hole{% endblock %}</title>
     <script>
     (function() {
-        var theme = localStorage.getItem('pihole-checkpoint-theme');
+        var theme = localStorage.getItem('checkpoint-pihole-theme');
         if (!theme) {
             theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
@@ -54,8 +54,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard' %}">
-                <img src="{% static 'backup/img/logo.png' %}" alt="Pi-hole Checkpoint" height="32" class="me-2">
-                Pi-hole Checkpoint
+                <img src="{% static 'backup/img/logo.png' %}" alt="Checkpoint Pi-hole" height="32" class="me-2">
+                Checkpoint Pi-hole
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -105,7 +105,7 @@
     </main>
 
     <footer class="container py-3 text-center text-muted">
-        <small class="text-muted"><a href="https://github.com/pihole-checkpoint/pihole-checkpoint" class="text-muted text-decoration-none">Pi-hole Checkpoint</a> v{{ app_version }}{% if git_commit %} ({{ git_commit }}){% endif %}{% if build_date %} &middot; built {{ build_date }}{% endif %}</small>
+        <small class="text-muted"><a href="https://github.com/checkpoint-pihole/checkpoint-pihole" class="text-muted text-decoration-none">Checkpoint Pi-hole</a> v{{ app_version }}{% if git_commit %} ({{ git_commit }}){% endif %}{% if build_date %} &middot; built {{ build_date }}{% endif %}</small>
     </footer>
 
     <script src="{% static 'backup/js/bootstrap.bundle.min.js' %}"></script>

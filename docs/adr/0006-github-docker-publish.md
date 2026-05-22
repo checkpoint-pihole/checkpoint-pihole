@@ -8,7 +8,7 @@
 
 ## Context
 
-The Pi-hole Checkpoint application is containerized and needs an automated way to build and publish Docker images. Currently, images must be built manually. We need a CI/CD pipeline that:
+The Checkpoint Pi-hole application is containerized and needs an automated way to build and publish Docker images. Currently, images must be built manually. We need a CI/CD pipeline that:
 
 - Automatically publishes images when code is merged to the main branch
 - Allows manual image builds for testing or hotfixes
@@ -38,7 +38,7 @@ Implement a GitHub Actions workflow to build and publish Docker images to GitHub
 - Automatic linking to repository
 - Built-in vulnerability scanning
 
-**Image Name:** `ghcr.io/<owner>/pihole-checkpoint`
+**Image Name:** `ghcr.io/<owner>/checkpoint-pihole`
 
 ### Workflow Architecture
 
@@ -224,29 +224,29 @@ The workflow uses `GITHUB_TOKEN` which is automatically provided.
 ### Pull Latest Image
 
 ```bash
-docker pull ghcr.io/<owner>/pihole-checkpoint:latest
+docker pull ghcr.io/<owner>/checkpoint-pihole:latest
 ```
 
 ### Pull Specific Version
 
 ```bash
-docker pull ghcr.io/<owner>/pihole-checkpoint:v1.0.0
-docker pull ghcr.io/<owner>/pihole-checkpoint:1.0
+docker pull ghcr.io/<owner>/checkpoint-pihole:v1.0.0
+docker pull ghcr.io/<owner>/checkpoint-pihole:1.0
 ```
 
 ### Pull Specific Commit
 
 ```bash
-docker pull ghcr.io/<owner>/pihole-checkpoint:sha-abc1234
+docker pull ghcr.io/<owner>/checkpoint-pihole:sha-abc1234
 ```
 
 ### Update docker-compose.yml
 
 ```yaml
 services:
-  pihole-checkpoint:
-    image: ghcr.io/<owner>/pihole-checkpoint:latest
-    # or for production: ghcr.io/<owner>/pihole-checkpoint:v1.0.0
+  checkpoint-pihole:
+    image: ghcr.io/<owner>/checkpoint-pihole:latest
+    # or for production: ghcr.io/<owner>/checkpoint-pihole:v1.0.0
 ```
 
 ---
@@ -336,10 +336,10 @@ Consider optimizing the Dockerfile with multi-stage builds:
 
 ```bash
 # List tags
-docker manifest inspect ghcr.io/<owner>/pihole-checkpoint:latest
+docker manifest inspect ghcr.io/<owner>/checkpoint-pihole:latest
 
 # Check multi-arch support
-docker manifest inspect ghcr.io/<owner>/pihole-checkpoint:latest | jq '.manifests[].platform'
+docker manifest inspect ghcr.io/<owner>/checkpoint-pihole:latest | jq '.manifests[].platform'
 ```
 
 ---

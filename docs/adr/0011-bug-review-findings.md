@@ -8,7 +8,7 @@
 
 ## Context
 
-A comprehensive bug review was conducted on the Pi-hole Checkpoint codebase to identify logical errors, race conditions, unhandled edge cases, security vulnerabilities, and other issues. This ADR documents all findings and serves as a tracking mechanism for remediation efforts.
+A comprehensive bug review was conducted on the Checkpoint Pi-hole codebase to identify logical errors, race conditions, unhandled edge cases, security vulnerabilities, and other issues. This ADR documents all findings and serves as a tracking mechanism for remediation efforts.
 
 The review covered:
 - Service layer (`pihole_client.py`, `backup_service.py`, `retention_service.py`)
@@ -623,7 +623,7 @@ def _generate_filename(self) -> str:
     """Generate a unique filename for the backup."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = self.config.name.replace(" ", "_").lower()
-    return f"pihole_checkpoint_{safe_name}_{timestamp}.zip"
+    return f"checkpoint_pihole_{safe_name}_{timestamp}.zip"
 ```
 
 **Impact:**
@@ -640,7 +640,7 @@ def _generate_filename(self) -> str:
     # Add short UUID suffix for uniqueness
     unique_suffix = uuid.uuid4().hex[:8]
     safe_name = self.config.name.replace(" ", "_").lower()
-    return f"pihole_checkpoint_{safe_name}_{timestamp}_{unique_suffix}.zip"
+    return f"checkpoint_pihole_{safe_name}_{timestamp}_{unique_suffix}.zip"
 ```
 
 **Alternative Fix (microseconds):**
@@ -650,7 +650,7 @@ def _generate_filename(self) -> str:
     # Include microseconds for higher precision
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     safe_name = self.config.name.replace(" ", "_").lower()
-    return f"pihole_checkpoint_{safe_name}_{timestamp}.zip"
+    return f"checkpoint_pihole_{safe_name}_{timestamp}.zip"
 ```
 
 **Testing:**
@@ -815,7 +815,7 @@ Config name is used in filename with only space replacement, allowing path chara
 **Current Code:**
 ```python
 safe_name = self.config.name.replace(" ", "_").lower()
-return f"pihole_checkpoint_{safe_name}_{timestamp}.zip"
+return f"checkpoint_pihole_{safe_name}_{timestamp}.zip"
 ```
 
 **Impact:**
@@ -840,7 +840,7 @@ def _generate_filename(self) -> str:
     # Fallback if name becomes empty
     safe_name = safe_name or 'pihole'
 
-    return f"pihole_checkpoint_{safe_name}_{timestamp}_{unique_suffix}.zip"
+    return f"checkpoint_pihole_{safe_name}_{timestamp}_{unique_suffix}.zip"
 ```
 
 **Alternative using Django's slugify:**
@@ -855,7 +855,7 @@ def _generate_filename(self) -> str:
     # slugify handles unicode, special chars, etc.
     safe_name = slugify(self.config.name) or 'pihole'
 
-    return f"pihole_checkpoint_{safe_name}_{timestamp}_{unique_suffix}.zip"
+    return f"checkpoint_pihole_{safe_name}_{timestamp}_{unique_suffix}.zip"
 ```
 
 **Testing:**
@@ -1097,7 +1097,7 @@ Scheduled backups silently stop working until container restart.
 #!/bin/bash
 set -e
 
-echo "=== Pi-hole Checkpoint Starting ==="
+echo "=== Checkpoint Pi-hole Starting ==="
 
 # Run migrations
 echo "[1/3] Running database migrations..."
@@ -1181,7 +1181,7 @@ Update `entrypoint.sh`:
 ```bash
 #!/bin/bash
 set -e
-echo "=== Pi-hole Checkpoint Starting ==="
+echo "=== Checkpoint Pi-hole Starting ==="
 python manage.py migrate --noinput
 exec supervisord -c /app/supervisord.conf
 ```

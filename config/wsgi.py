@@ -1,5 +1,5 @@
 """
-WSGI config for pihole-checkpoint project.
+WSGI config for checkpoint-pihole project.
 """
 
 import os

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== Pi-hole Checkpoint Starting ==="
+echo "=== Checkpoint Pi-hole Starting ==="
 
 # Run migrations
 echo "[1/4] Running database migrations..."

@@ -1,8 +1,8 @@
 <p align="center">
-  <img width="896" height="467" alt="Pi-hole Checkpoint logo" src="https://github.com/user-attachments/assets/ad0caaa2-e052-438e-89f1-d6fcccfc2bf6" />
+  <img width="896" height="467" alt="Checkpoint Pi-hole logo" src="https://github.com/user-attachments/assets/ad0caaa2-e052-438e-89f1-d6fcccfc2bf6" />
 </p>
 
-# Pi-hole Checkpoint
+# Checkpoint Pi-hole
 
 A web application for backing up Pi-hole v6 instances via the Teleporter API. Runs as a single Docker container with a web UI and automated scheduler.
 
@@ -22,8 +22,8 @@ A web application for backing up Pi-hole v6 instances via the Teleporter API. Ru
 1. Create a `docker-compose.yml`:
    ```yaml
    services:
-     pihole-checkpoint:
-       image: ghcr.io/pihole-checkpoint/pihole-checkpoint:latest
+     checkpoint-pihole:
+       image: ghcr.io/checkpoint-pihole/checkpoint-pihole:latest
        ports:
          - "8000:8000"
        volumes:
@@ -115,9 +115,9 @@ Example scrape config:
 
 ```yaml
 scrape_configs:
-  - job_name: pihole-checkpoint
+  - job_name: checkpoint-pihole
     static_configs:
-      - targets: ["pihole-checkpoint:8000"]
+      - targets: ["checkpoint-pihole:8000"]
 ```
 
 Exposed metrics (all prefixed `pihole_`):
@@ -150,7 +150,7 @@ Backups and the database are stored in mounted volumes:
 
 ```bash
 # View logs
-docker compose logs -f pihole-checkpoint
+docker compose logs -f checkpoint-pihole
 
 # Stop the application
 docker compose down
@@ -162,3 +162,9 @@ docker compose up --build -d
 ## License
 
 MIT
+
+## Disclaimer
+
+This project is third-party software and is not affiliated with, endorsed by, or
+associated with the official Pi-hole project. "Pi-hole" is a registered trademark
+of Pi-hole LLC.

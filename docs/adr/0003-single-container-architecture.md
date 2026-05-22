@@ -9,7 +9,7 @@
 
 ## Context
 
-Prior to this ADR, the Pi-hole Checkpoint deployment used three Docker services:
+Prior to this ADR, the Checkpoint Pi-hole deployment used three Docker services:
 
 | Service | Purpose | Command |
 |---------|---------|---------|
@@ -24,7 +24,7 @@ This creates operational complexity:
 4. **Resource overhead** - each container has its own Python runtime
 5. **Log fragmentation** - logs split across multiple containers
 
-For a single-user, self-hosted application like Pi-hole Checkpoint, this multi-container approach is over-engineered.
+For a single-user, self-hosted application like Checkpoint Pi-hole, this multi-container approach is over-engineered.
 
 ---
 
@@ -208,7 +208,7 @@ Create `entrypoint.sh`:
 #!/bin/bash
 set -e
 
-echo "=== Pi-hole Checkpoint Starting ==="
+echo "=== Checkpoint Pi-hole Starting ==="
 
 # Run migrations
 echo "[1/3] Running database migrations..."
@@ -271,7 +271,7 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 
 ```yaml
 services:
-  pihole-checkpoint:
+  checkpoint-pihole:
     build: .
     ports:
       - "8000:8000"
@@ -389,7 +389,7 @@ Option 1 (Entrypoint Script) was implemented with the following files:
 |------|---------|
 | `entrypoint.sh` | Created - runs migrations, starts scheduler in background, starts Gunicorn |
 | `Dockerfile` | Added `curl` and `procps` packages, changed CMD to ENTRYPOINT |
-| `docker-compose.yml` | Consolidated 3 services into single `pihole-checkpoint` service |
+| `docker-compose.yml` | Consolidated 3 services into single `checkpoint-pihole` service |
 | `backup/views.py` | Added `health_check()` endpoint at `/health/` |
 | `backup/urls.py` | Added route for health check |
 | `backup/middleware/simple_auth.py` | Excluded `/health/` from authentication |

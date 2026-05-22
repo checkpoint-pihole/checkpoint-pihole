@@ -8,7 +8,7 @@
 
 ### Background
 
-Operators running Pi-hole Checkpoint alongside Prometheus/Grafana have no
+Operators running Checkpoint Pi-hole alongside Prometheus/Grafana have no
 standard way to alert on backup health. The only existing observability surface
 is `/health/` (JSON liveness) and the application logs. Important signals —
 "last successful backup per instance", "connection status", "scheduler

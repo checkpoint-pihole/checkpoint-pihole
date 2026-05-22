@@ -1,4 +1,4 @@
-"""Template context processors for Pi-hole Checkpoint."""
+"""Template context processors for Checkpoint Pi-hole."""
 
 import functools
 import importlib.metadata
@@ -10,7 +10,7 @@ import subprocess
 def _get_app_info():
     """Get app version and build metadata (cached for process lifetime)."""
     try:
-        version = importlib.metadata.version("pihole-checkpoint")
+        version = importlib.metadata.version("checkpoint-pihole")
     except importlib.metadata.PackageNotFoundError:
         version = "dev"
 

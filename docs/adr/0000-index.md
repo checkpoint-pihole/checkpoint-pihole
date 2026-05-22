@@ -1,6 +1,6 @@
 # ADR-0000: Architecture Decision Records Index
 
-This document serves as the index for all Architecture Decision Records (ADRs) in the Pi-hole Checkpoint project.
+This document serves as the index for all Architecture Decision Records (ADRs) in the Checkpoint Pi-hole project.
 
 ---
 

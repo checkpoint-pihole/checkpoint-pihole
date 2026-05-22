@@ -1,1 +1,1 @@
-# Unit tests for Pi-hole Checkpoint
+# Unit tests for Checkpoint Pi-hole

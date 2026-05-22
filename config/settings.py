@@ -1,5 +1,5 @@
 """
-Django settings for pihole-checkpoint project.
+Django settings for checkpoint-pihole project.
 """
 
 import os

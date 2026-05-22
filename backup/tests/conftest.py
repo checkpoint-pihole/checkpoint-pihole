@@ -1,4 +1,4 @@
-"""Shared fixtures for Pi-hole Checkpoint tests."""
+"""Shared fixtures for Checkpoint Pi-hole tests."""
 
 import tempfile
 from datetime import time

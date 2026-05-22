@@ -7,7 +7,7 @@
 
 ## Context
 
-Pi-hole Checkpoint currently uses a light-only theme with Bootstrap 5.3.2. Users may prefer dark mode for:
+Checkpoint Pi-hole currently uses a light-only theme with Bootstrap 5.3.2. Users may prefer dark mode for:
 - Reduced eye strain in low-light environments
 - Personal preference
 - Consistency with system-wide dark mode settings
@@ -56,7 +56,7 @@ Pi-hole Checkpoint currently uses a light-only theme with Bootstrap 5.3.2. Users
 
 ```javascript
 const ThemeManager = {
-    STORAGE_KEY: 'pihole-checkpoint-theme',
+    STORAGE_KEY: 'checkpoint-pihole-theme',
 
     getPreference() {
         const stored = localStorage.getItem(this.STORAGE_KEY);
@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => ThemeManager.init());
 ```html
 <script>
 (function() {
-    var theme = localStorage.getItem('pihole-checkpoint-theme');
+    var theme = localStorage.getItem('checkpoint-pihole-theme');
     if (!theme) {
         theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }

@@ -154,7 +154,7 @@ APP_PASSWORD=your-secure-password
 ## Project Structure
 
 ```
-pihole-checkpoint/
+checkpoint-pihole/
 ├── docker-compose.yml          # Container orchestration
 ├── Dockerfile                  # Application image
 ├── requirements.txt            # Python dependencies
@@ -372,7 +372,7 @@ version: '3.8'
 services:
   web:
     build: .
-    container_name: pihole-checkpoint-web
+    container_name: checkpoint-pihole-web
     ports:
       - "8000:8000"
     volumes:
@@ -395,7 +395,7 @@ services:
 
   scheduler:
     build: .
-    container_name: pihole-checkpoint-scheduler
+    container_name: checkpoint-pihole-scheduler
     command: python manage.py runapscheduler
     volumes:
       - ./data:/app/data

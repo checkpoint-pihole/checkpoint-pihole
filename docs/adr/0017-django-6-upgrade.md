@@ -161,7 +161,7 @@ main branch.
 - [ ] Edit `pyproject.toml` to `Django>=5.0,<7.0`; `uv lock --upgrade-package django`
 - [ ] `uv run pytest` — confirm 214 pass
 - [ ] `docker compose up --build` — confirm container boots, migrations run, no startup errors from `django_apscheduler` admin/migrations
-- [ ] Run a manual smoke: `docker compose exec pihole-checkpoint uv run python manage.py runapscheduler` for a minute, verify the scheduler initializes and `DjangoJobStore` reads/writes to `django_apscheduler_djangojob` and `django_apscheduler_djangojobexecution` tables without errors
+- [ ] Run a manual smoke: `docker compose exec checkpoint-pihole uv run python manage.py runapscheduler` for a minute, verify the scheduler initializes and `DjangoJobStore` reads/writes to `django_apscheduler_djangojob` and `django_apscheduler_djangojobexecution` tables without errors
 - [ ] Trigger one ad-hoc backup via `apscheduler_run_job` or by setting a 1-minute frequency; verify a `BackupRecord` is created
 - [ ] If clean: proceed to Phase 1. If broken: file the failure mode in the issue tracker, fall back to Option 2 (close this ADR as Rejected), and update `0000-index.md` accordingly.
 
