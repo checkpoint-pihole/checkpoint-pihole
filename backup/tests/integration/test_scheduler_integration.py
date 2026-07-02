@@ -207,6 +207,7 @@ class TestScheduleBackupJobs:
         assert f"backup_{active.id}" in job_ids
         assert f"backup_{inactive.id}" not in job_ids
 
+
 @pytest.mark.django_db
 @pytest.mark.integration
 class TestRefreshBackupSchedules:
