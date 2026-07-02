@@ -18,6 +18,35 @@ from .pihole_client import PiholeV6Client
 logger = logging.getLogger(__name__)
 
 
+def delete_backup_file_and_record(record: BackupRecord) -> bool:
+    """Delete a backup's file and its DB record.
+
+    The file is only unlinked when it resolves to a path inside BACKUP_DIR, so
+    a record whose file_path was tampered with (edited via the admin, or an
+    imported/legacy database) cannot make an unattended caller delete an
+    arbitrary file. Returns True when the record is deleted; returns False
+    without deleting the record if the file exists but could not be removed, so
+    it is retried on the next run.
+    """
+    if record.file_path:
+        backup_dir = Path(settings.BACKUP_DIR).resolve()
+        filepath = Path(record.file_path).resolve()
+        try:
+            filepath.relative_to(backup_dir)
+        except ValueError:
+            logger.warning("Skipping file outside backup dir: %s", filepath)
+        else:
+            if filepath.exists():
+                try:
+                    filepath.unlink()
+                except OSError as e:
+                    logger.error("Failed to delete file %s: %s", filepath, e)
+                    return False
+
+    record.delete()
+    return True
+
+
 class BackupService:
     """Service for creating and managing Pi-hole backups."""
 
@@ -164,26 +193,7 @@ class BackupService:
         Returns True if deleted successfully.
         """
         logger.info(f"Deleting backup: {record.filename}")
-
-        # Delete file if it exists and is within the backup directory
-        if record.file_path:
-            backup_dir = Path(settings.BACKUP_DIR).resolve()
-            filepath = Path(record.file_path).resolve()
-            try:
-                filepath.relative_to(backup_dir)
-            except ValueError:
-                logger.warning("Skipping file outside backup dir: %s", filepath)
-            else:
-                if filepath.exists():
-                    try:
-                        filepath.unlink()
-                    except OSError as e:
-                        logger.error(f"Failed to delete file {filepath}: {e}")
-                        return False
-
-        # Delete record
-        record.delete()
-        return True
+        return delete_backup_file_and_record(record)
 
     def get_backup_file(self, record: BackupRecord) -> Path | None:
         """Get the path to a backup file if it exists."""
