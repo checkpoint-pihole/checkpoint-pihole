@@ -293,6 +293,27 @@ class TestBackupServiceGetBackupFile:
 
         assert result is None
 
+    def test_get_backup_file_refuses_path_outside_backup_dir(self, pihole_config, temp_backup_dir, tmp_path):
+        """get_backup_file must refuse (return None) a file_path outside BACKUP_DIR.
+
+        tmp_path is a separate tree from temp_backup_dir (which sets
+        settings.BACKUP_DIR), so a real, existing file there is still refused.
+        """
+        outside_file = tmp_path / "outside.zip"
+        outside_file.write_bytes(b"PK\x03\x04outside")
+
+        record = BackupRecord.objects.create(
+            config=pihole_config,
+            filename="outside.zip",
+            file_path=str(outside_file),
+            status="success",
+        )
+
+        service = BackupService(pihole_config)
+        # Refused even though the file exists on disk.
+        assert outside_file.exists()
+        assert service.get_backup_file(record) is None
+
 
 @pytest.mark.django_db
 class TestBackupServiceGetClient:

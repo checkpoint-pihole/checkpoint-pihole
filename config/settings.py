@@ -163,6 +163,17 @@ else:
 # Sessions expire when browser closes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
+# Secure-cookie / HTTPS hardening.
+# The session cookie is the auth token (simple_auth gates on the session), so it
+# must be flagged Secure when served over HTTPS. Off by default to keep the local
+# plain-HTTP dev flow working; enable SECURE_COOKIES=true when behind a TLS proxy.
+SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "false").lower() in ("true", "1", "yes")
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+# Trust the reverse proxy's X-Forwarded-Proto so Django knows the request is
+# HTTPS when TLS is terminated upstream (only when secure cookies are enabled).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if SECURE_COOKIES else None
+
 # APScheduler settings
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
 APSCHEDULER_RUN_NOW_TIMEOUT = 25

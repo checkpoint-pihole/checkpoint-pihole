@@ -14,5 +14,5 @@ class PiholeConfigAdmin(admin.ModelAdmin):
 class BackupRecordAdmin(admin.ModelAdmin):
     list_display = ["filename", "config", "status", "file_size", "is_manual", "created_at"]
     list_filter = ["status", "is_manual", "config"]
-    readonly_fields = ["created_at"]
+    readonly_fields = ["file_path", "checksum", "created_at"]
     search_fields = ["filename"]
