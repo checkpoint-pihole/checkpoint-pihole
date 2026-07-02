@@ -1,10 +1,10 @@
 """Backup restore service."""
 
-import hashlib
 import logging
 from pathlib import Path
 
 from ..models import BackupRecord, PiholeConfig
+from .checksum import calculate_checksum
 from .credential_service import CredentialService
 from .notifications import NotificationEvent
 from .notifications.service import get_notification_service, safe_send_notification
@@ -28,14 +28,6 @@ class RestoreService:
             password=creds["password"],
             verify_ssl=creds["verify_ssl"],
         )
-
-    def _calculate_checksum(self, filepath: Path) -> str:
-        """Calculate SHA256 checksum of a file."""
-        sha256 = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
 
     def restore_backup(self, record: BackupRecord) -> dict:
         """
@@ -62,7 +54,7 @@ class RestoreService:
 
             # Verify checksum before restore
             if record.checksum:
-                actual_checksum = self._calculate_checksum(filepath)
+                actual_checksum = calculate_checksum(filepath)
                 if actual_checksum != record.checksum:
                     raise ValueError("Backup file corrupted (checksum mismatch)")
 

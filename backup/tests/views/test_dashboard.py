@@ -190,3 +190,23 @@ class TestInstanceDashboardView:
         content = response.content.decode()
         assert "Instances" in content
         assert pihole_config.name in content
+
+    def test_shared_helper_context_matches_single_instance_dashboard(
+        self, client, pihole_config, auth_disabled_settings
+    ):
+        """Both dashboard entry points build the same context via the shared helper.
+
+        The single-config `dashboard` route and the per-instance
+        `instance_dashboard` route render identical keys, differing only in
+        `single_instance`.
+        """
+        shared_keys = {"config", "backups", "credential_status", "credentials_configured", "single_instance"}
+
+        single = client.get(reverse("dashboard"))
+        per_instance = client.get(reverse("instance_dashboard", args=[pihole_config.id]))
+
+        assert shared_keys <= set(single.context.keys())
+        assert shared_keys <= set(per_instance.context.keys())
+        assert single.context["config"] == per_instance.context["config"] == pihole_config
+        assert single.context["single_instance"] is True
+        assert per_instance.context["single_instance"] is False

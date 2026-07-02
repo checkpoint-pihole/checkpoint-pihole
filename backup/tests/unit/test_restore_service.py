@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from backup.services.checksum import calculate_checksum
 from backup.services.restore_service import RestoreService
 
 
@@ -161,7 +162,7 @@ class TestRestoreServiceRestoreBackup:
 
 
 class TestRestoreServiceCalculateChecksum:
-    """Tests for RestoreService._calculate_checksum()."""
+    """Tests for the shared calculate_checksum helper used by RestoreService."""
 
     def test_calculate_checksum_returns_sha256(self, pihole_config):
         """Should return SHA256 checksum of file."""
@@ -173,8 +174,41 @@ class TestRestoreServiceCalculateChecksum:
             filepath = Path(f.name)
 
         try:
-            service = RestoreService(pihole_config)
-            result = service._calculate_checksum(filepath)
+            result = calculate_checksum(filepath)
             assert result == expected_checksum
         finally:
             filepath.unlink()
+
+
+@pytest.mark.django_db
+class TestChecksumBackupRestoreRoundTrip:
+    """Verify backup and restore agree on the shared checksum implementation."""
+
+    def test_backup_checksum_passes_restore_verification(self, pihole_config, temp_backup_dir):
+        """A checksum computed at backup time must satisfy restore's verification.
+
+        Both services call the same calculate_checksum helper, so a restore of an
+        untampered file must not raise a checksum-mismatch ValueError.
+        """
+        backup_content = b"PK\x03\x04round trip backup content"
+        filepath = temp_backup_dir / "roundtrip.zip"
+        filepath.write_bytes(backup_content)
+
+        # Checksum recorded by the backup path
+        recorded_checksum = calculate_checksum(filepath)
+
+        record = MagicMock()
+        record.file_path = str(filepath)
+        record.filename = "roundtrip.zip"
+        record.checksum = recorded_checksum
+
+        with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.upload_teleporter_backup.return_value = {"status": "success"}
+            mock_client_class.return_value = mock_client
+
+            service = RestoreService(pihole_config)
+            result = service.restore_backup(record)
+
+        assert result["status"] == "success"
+        mock_client.upload_teleporter_backup.assert_called_once_with(backup_content)

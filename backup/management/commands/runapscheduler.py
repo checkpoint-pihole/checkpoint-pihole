@@ -3,7 +3,6 @@
 import logging
 import threading
 
-from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -82,15 +81,8 @@ def schedule_backup_jobs(scheduler):
     for config in configs:
         job_id = f"backup_{config.id}"
 
-        # Remove existing job for this config (may not exist on first run)
-        try:
-            scheduler.remove_job(job_id)
-        except JobLookupError:
-            # Job doesn't exist yet, which is fine
-            pass
-        except Exception as e:
-            # Log unexpected errors but continue
-            logger.warning(f"Unexpected error removing job {job_id}: {e}")
+        # Note: no explicit remove_job here — add_job(replace_existing=True)
+        # atomically replaces any existing job, avoiding a remove/add race window.
 
         # Create trigger based on frequency
         if config.backup_frequency == "hourly":

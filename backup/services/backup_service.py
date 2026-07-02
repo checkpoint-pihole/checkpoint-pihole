@@ -1,6 +1,5 @@
 """Backup creation and management service."""
 
-import hashlib
 import logging
 import re
 import uuid
@@ -10,6 +9,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from ..models import BackupRecord, PiholeConfig
+from .checksum import calculate_checksum
 from .credential_service import CredentialService
 from .notifications import NotificationEvent
 from .notifications.service import get_notification_service, safe_send_notification
@@ -53,14 +53,6 @@ class BackupService:
 
         return f"checkpoint_pihole_{safe_name}_{timestamp}_{unique_suffix}.zip"
 
-    def _calculate_checksum(self, filepath: Path) -> str:
-        """Calculate SHA256 checksum of a file."""
-        sha256 = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
-
     def create_backup(self, is_manual: bool = False) -> BackupRecord:
         """
         Create a new backup from Pi-hole.
@@ -92,7 +84,7 @@ class BackupService:
                 f.write(backup_data)
 
             # Calculate checksum
-            checksum = self._calculate_checksum(filepath)
+            checksum = calculate_checksum(filepath)
 
             # Create record
             record = BackupRecord.objects.create(
