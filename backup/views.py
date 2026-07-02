@@ -189,7 +189,12 @@ def delete_backup(request, backup_id):
 
     try:
         service = BackupService(config)
-        service.delete_backup(record)
+        deleted = service.delete_backup(record)
+        if not deleted:
+            return JsonResponse(
+                {"success": False, "error": "Backup file could not be deleted; it will be retried"},
+                status=500,
+            )
         return JsonResponse({"success": True})
     except Exception as e:
         logger.exception("Backup deletion error")
