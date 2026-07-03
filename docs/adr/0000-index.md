@@ -38,6 +38,7 @@ This document serves as the index for all Architecture Decision Records (ADRs) i
 | [ADR-0016](0016-prometheus-metrics-endpoint.md) | Prometheus Metrics Endpoint | Accepted | 2026-04-16 |
 | [ADR-0017](0017-django-6-upgrade.md) | Django 6.0 Upgrade | Implemented | 2026-05-09 |
 | [ADR-0018](0018-gunicorn-26-upgrade.md) | Gunicorn 26.0 Upgrade | Implemented | 2026-05-09 |
+| [ADR-0019](0019-fable-audit-findings-2026-07-02.md) | Fable Audit Findings and Remediation Plan (2026-07-02) | Proposed | 2026-07-02 |
 
 ---
 
@@ -64,6 +65,9 @@ This document serves as the index for all Architecture Decision Records (ADRs) i
 ### Accepted (2)
 - ADR-0015: Simple Password Authentication
 - ADR-0016: Prometheus Metrics Endpoint
+
+### Proposed (1)
+- ADR-0019: Fable Audit Findings and Remediation Plan (2026-07-02)
 
 ---
 
