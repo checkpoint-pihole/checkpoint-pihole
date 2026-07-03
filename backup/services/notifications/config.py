@@ -4,12 +4,11 @@ import logging
 import os
 import threading
 
+from config.env import get_bool_env
+
 logger = logging.getLogger(__name__)
 
-
-def get_bool_env(key: str, default: bool = False) -> bool:
-    """Get boolean from environment variable."""
-    return os.getenv(key, str(default)).lower() in ("true", "1", "yes")
+__all__ = ["get_bool_env", "NotificationSettings", "get_notification_settings", "reload_notification_settings"]
 
 
 class NotificationSettings:
