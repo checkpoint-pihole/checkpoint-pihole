@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.urls import reverse
 
+from backup.models import BackupRecord
 from backup.tests.factories import BackupRecordFactory
 
 
@@ -187,6 +188,26 @@ class TestDeleteBackupEndpoint:
         assert response["Content-Type"] == "application/json"
         assert response.json()["success"] is False
 
+    def test_reports_failure_and_keeps_record_when_unlink_fails(
+        self, client, pihole_config, backup_record, temp_backup_dir, auth_disabled_settings
+    ):
+        """When the file cannot be unlinked, the endpoint must report failure and keep the record.
+
+        Regression: the view discarded the service's return value and always
+        returned success:true even though the file (and DB record) were retained.
+        """
+        url = reverse("delete_backup", args=[backup_record.id])
+
+        with patch("pathlib.Path.unlink", side_effect=OSError("permission denied")):
+            response = client.post(url)
+
+        assert response.status_code == 500
+        response_data = response.json()
+        assert response_data["success"] is False
+        assert response_data["error"]
+        # Record must be retained so the delete can be retried.
+        assert BackupRecord.objects.filter(id=backup_record.id).exists()
+
     def test_only_accepts_post(self, client, backup_record, auth_disabled_settings):
         """Should only accept POST requests."""
         url = reverse("delete_backup", args=[backup_record.id])
@@ -323,6 +344,26 @@ class TestDownloadBackupEndpoint:
         url = reverse("download_backup", args=[99999])
         response = client.get(url)
         assert response.status_code == 404
+
+    def test_refuses_file_outside_backup_dir(
+        self, client, pihole_config, temp_backup_dir, tmp_path, auth_disabled_settings
+    ):
+        """Download must refuse a file_path resolving outside BACKUP_DIR (redirect)."""
+        # Real, existing file outside the configured backup dir.
+        outside_file = tmp_path / "outside.zip"
+        outside_file.write_bytes(b"PK\x03\x04outside")
+
+        record = BackupRecordFactory(
+            config=pihole_config,
+            filename="outside.zip",
+            file_path=str(outside_file),
+        )
+
+        url = reverse("download_backup", args=[record.id])
+        response = client.get(url)
+
+        assert response.status_code == 302
+        assert response.url == reverse("dashboard")
 
 
 @pytest.mark.django_db

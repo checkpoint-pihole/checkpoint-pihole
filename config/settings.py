@@ -6,13 +6,16 @@ import os
 import secrets
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
+
+from config.env import get_bool_env
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
+DEBUG = get_bool_env("DEBUG", False)
 
 
 def get_or_create_secret_key() -> str:
@@ -146,22 +149,42 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 BACKUP_DIR = BASE_DIR / "backups"
 
 # Simple auth settings
-REQUIRE_AUTH = os.environ.get("REQUIRE_AUTH", "false").lower() in ("true", "1", "yes")
+REQUIRE_AUTH = get_bool_env("REQUIRE_AUTH", False)
+APP_PASSWORD_HASH = ""
 if REQUIRE_AUTH:
     _APP_PASSWORD_RAW = os.environ.get("APP_PASSWORD", "")
-    if _APP_PASSWORD_RAW:
-        from django.contrib.auth.hashers import make_password
+    if not _APP_PASSWORD_RAW:
+        # Fail closed: an enabled-but-passwordless auth config would otherwise
+        # be silently skipped by SimpleAuthMiddleware, serving the whole UI
+        # unauthenticated while the operator believes it is protected.
+        raise ImproperlyConfigured(
+            "REQUIRE_AUTH is enabled but APP_PASSWORD is empty. "
+            "Set APP_PASSWORD to a non-empty value, or unset REQUIRE_AUTH."
+        )
 
-        APP_PASSWORD_HASH = make_password(_APP_PASSWORD_RAW)
-        del _APP_PASSWORD_RAW
-        os.environ.pop("APP_PASSWORD", None)
-    else:
-        APP_PASSWORD_HASH = ""
-else:
-    APP_PASSWORD_HASH = ""
+    from django.contrib.auth.hashers import make_password
+
+    APP_PASSWORD_HASH = make_password(_APP_PASSWORD_RAW)
+    del _APP_PASSWORD_RAW
+    os.environ.pop("APP_PASSWORD", None)
+
+# Trust X-Forwarded-For for client IP (rate limiting) only when behind a proxy.
+# Off by default so a directly-exposed container cannot be spoofed to evade limits.
+TRUST_PROXY = get_bool_env("TRUST_PROXY", False)
 
 # Sessions expire when browser closes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Secure-cookie / HTTPS hardening.
+# The session cookie is the auth token (simple_auth gates on the session), so it
+# must be flagged Secure when served over HTTPS. Off by default to keep the local
+# plain-HTTP dev flow working; enable SECURE_COOKIES=true when behind a TLS proxy.
+SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "false").lower() in ("true", "1", "yes")
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+# Trust the reverse proxy's X-Forwarded-Proto so Django knows the request is
+# HTTPS when TLS is terminated upstream (only when secure cookies are enabled).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if SECURE_COOKIES else None
 
 # APScheduler settings
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"

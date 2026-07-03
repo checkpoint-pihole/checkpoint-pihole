@@ -38,7 +38,13 @@ monitor_scheduler() {
         if ! kill -0 $SCHEDULER_PID 2>/dev/null; then
             restart_count=$((restart_count + 1))
             if [ "$restart_count" -gt "$MAX_RESTARTS" ]; then
-                echo "ERROR: Scheduler exceeded $MAX_RESTARTS restarts, giving up"
+                echo "ERROR: Scheduler exceeded $MAX_RESTARTS restarts, giving up — terminating container so 'restart: unless-stopped' can recover it"
+                # The scheduler is unrecoverable. This monitor runs in a
+                # backgrounded subshell, so a bare `return 1` cannot stop PID 1.
+                # Kill gunicorn (PID 1's foreground child) with SIGKILL so the
+                # main process's `wait` returns nonzero and the container exits;
+                # the restart policy then restarts the whole container.
+                kill -KILL "$GUNICORN_PID" 2>/dev/null || true
                 return 1
             fi
             echo "WARNING: Scheduler process died (restart $restart_count/$MAX_RESTARTS), restarting in ${backoff}s..."
@@ -55,10 +61,6 @@ monitor_scheduler() {
         fi
     done
 }
-
-# Start monitor in background
-monitor_scheduler &
-MONITOR_PID=$!
 
 # Trap signals to clean up
 cleanup() {
@@ -84,6 +86,11 @@ uv run gunicorn config.wsgi:application \
     --access-logfile - \
     --error-logfile - &
 GUNICORN_PID=$!
+
+# Start monitor in background — after GUNICORN_PID is set so the monitor can
+# terminate the container (by killing gunicorn) if the scheduler is unrecoverable.
+monitor_scheduler &
+MONITOR_PID=$!
 
 # Wait for gunicorn — allows bash to receive signals
 wait $GUNICORN_PID

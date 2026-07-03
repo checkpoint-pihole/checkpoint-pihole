@@ -47,6 +47,17 @@ class TestCredentialServiceGetCredentials:
 
         assert creds["verify_ssl"] is False
 
+    @pytest.mark.parametrize("value", ["true", "1", "yes", "YES"])
+    def test_verify_ssl_accepts_all_truthy_spellings(self, pihole_config, monkeypatch, value):
+        """VERIFY_SSL parses like every other bool flag (not just the literal 'true')."""
+        monkeypatch.setenv("PIHOLE_PRIMARY_URL", "https://test.pihole.local")
+        monkeypatch.setenv("PIHOLE_PRIMARY_PASSWORD", "testpassword")
+        monkeypatch.setenv("PIHOLE_PRIMARY_VERIFY_SSL", value)
+
+        creds = CredentialService.get_credentials(pihole_config)
+
+        assert creds["verify_ssl"] is True
+
 
 @pytest.mark.django_db
 class TestCredentialServiceIsConfigured:

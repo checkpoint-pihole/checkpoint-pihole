@@ -1,9 +1,9 @@
 """Backup restore service."""
 
 import logging
-from pathlib import Path
 
 from ..models import BackupRecord, PiholeConfig
+from .backup_service import resolve_backup_path
 from .checksum import calculate_checksum
 from .credential_service import CredentialService
 from .notifications import NotificationEvent
@@ -47,16 +47,19 @@ class RestoreService:
         logger.info(f"Restoring backup {record.filename} to {self.config.name}")
 
         try:
-            # Verify file exists
-            filepath = Path(record.file_path)
-            if not filepath.exists():
+            # Resolve the file path, refusing anything outside the backup dir
+            # (guards against a tampered file_path) and verify it exists.
+            filepath = resolve_backup_path(record)
+            if filepath is None or not filepath.exists():
                 raise FileNotFoundError(f"Backup file not found: {record.filename}")
 
-            # Verify checksum before restore
-            if record.checksum:
-                actual_checksum = calculate_checksum(filepath)
-                if actual_checksum != record.checksum:
-                    raise ValueError("Backup file corrupted (checksum mismatch)")
+            # Verify checksum before restore. A missing/blank checksum means we
+            # cannot verify integrity, so treat it as a failure rather than a skip.
+            if not record.checksum:
+                raise ValueError("Backup file checksum missing; cannot verify integrity")
+            actual_checksum = calculate_checksum(filepath)
+            if actual_checksum != record.checksum:
+                raise ValueError("Backup file corrupted (checksum mismatch)")
 
             # Upload to Pi-hole using environment credentials
             with open(filepath, "rb") as f:

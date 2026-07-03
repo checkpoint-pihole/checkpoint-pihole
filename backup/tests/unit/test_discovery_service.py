@@ -188,6 +188,38 @@ class TestDiscoverInstancesFromEnv:
         assert result["removed"] == []
         assert "GYM" in result["skipped"]
 
+    def test_reactivates_instance_when_env_var_restored(self):
+        """Re-adding a removed instance's env var should reactivate it.
+
+        Regression: a removed instance stays is_active=False /
+        connection_status='removed' even after its PIHOLE_{PREFIX}_URL is
+        restored, so runapscheduler (which filters is_active=True) never resumes
+        its scheduled backups. Discovery must reset the removal flags.
+        """
+        env_with = _clean_env({"PIHOLE_GYM_URL": "https://192.168.1.186", "PIHOLE_GYM_PASSWORD": "secret"})
+
+        # First discovery creates the instance.
+        with patch.dict("os.environ", env_with, clear=True):
+            discover_instances_from_env()
+
+        # Env var disappears -> instance is marked removed and deactivated.
+        with patch.dict("os.environ", _clean_env({}), clear=True):
+            removed_result = discover_instances_from_env()
+        assert "GYM" in removed_result["removed"]
+        gym = PiholeConfig.objects.get(env_prefix="GYM")
+        assert gym.connection_status == "removed"
+        assert gym.is_active is False
+
+        # Env var is restored -> instance must be reactivated (no force needed).
+        with patch.dict("os.environ", env_with, clear=True):
+            readd_result = discover_instances_from_env()
+
+        assert "GYM" in readd_result["skipped"]
+        gym.refresh_from_db()
+        assert gym.is_active is True
+        assert gym.connection_status == "unknown"
+        assert gym.connection_error == ""
+
 
 @pytest.mark.django_db
 class TestCheckConnectionsNotifications:

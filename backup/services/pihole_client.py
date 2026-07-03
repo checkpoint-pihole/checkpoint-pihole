@@ -125,6 +125,21 @@ class PiholeV6Client:
         response = self._request_with_reauth("GET", "/api/info/version", timeout=30)
         return response.json()
 
+    @staticmethod
+    def _validate_zip_content(content: bytes) -> None:
+        """Ensure the downloaded body is a real ZIP (Teleporter export).
+
+        Pi-hole returns a ZIP archive, but a reverse proxy or an error page can
+        return HTML/JSON with a 200 status. Storing that as a "success" backup
+        would silently corrupt the backup set, so reject anything that does not
+        start with the ZIP local-file-header magic bytes.
+        """
+        if not content.startswith(b"PK\x03\x04"):
+            raise ValueError(
+                "Teleporter response was not a valid ZIP archive "
+                "(missing ZIP signature); refusing to store corrupt backup"
+            )
+
     def download_teleporter_backup(self) -> bytes:
         """
         Download a Teleporter backup from Pi-hole.
@@ -139,6 +154,7 @@ class PiholeV6Client:
             logger.warning(f"Unexpected content type: {content_type}")
 
         content = response.content
+        self._validate_zip_content(content)
         logger.info(f"Downloaded backup: {len(content)} bytes")
         return content
 

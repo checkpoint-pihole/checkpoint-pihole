@@ -2,11 +2,11 @@
 
 import logging
 from datetime import timedelta
-from pathlib import Path
 
 from django.utils import timezone
 
 from ..models import BackupRecord, PiholeConfig
+from .backup_service import delete_backup_file_and_record
 
 logger = logging.getLogger(__name__)
 
@@ -68,21 +68,11 @@ class RetentionService:
         """
         Delete a backup file and record.
 
-        Returns True if successfully deleted, False otherwise.
+        Delegates to the shared containment-checked helper so the unattended
+        retention job enforces the same "inside BACKUP_DIR only" guard as the
+        interactive delete endpoint. Returns True if successfully deleted.
         """
-        if backup.file_path:
-            filepath = Path(backup.file_path)
-            if filepath.exists():
-                try:
-                    filepath.unlink()
-                except OSError as e:
-                    logger.error(f"Failed to delete file {filepath}: {e}")
-                    # Don't delete DB record if file deletion failed
-                    return False
-
-        # File deleted (or didn't exist), safe to delete record
-        backup.delete()
-        return True
+        return delete_backup_file_and_record(backup)
 
     def enforce_all(self) -> int:
         """
