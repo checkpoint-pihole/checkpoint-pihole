@@ -38,7 +38,11 @@ RUN uv sync --frozen --no-dev
 
 RUN mkdir -p /app/data /app/backups /app/staticfiles
 
-RUN uv run python manage.py collectstatic --noinput
+# Use a throwaway build-only SECRET_KEY so collectstatic does not generate and
+# bake a persistent /app/data/.secret_key into the image layer. Remove any key
+# file just in case, so runtime generates/uses its own.
+RUN SECRET_KEY=build-time-only uv run python manage.py collectstatic --noinput \
+    && rm -f /app/data/.secret_key
 
 # Make entrypoint executable
 RUN chmod +x /app/entrypoint.sh

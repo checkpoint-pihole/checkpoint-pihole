@@ -23,6 +23,37 @@ from .services.system_service import is_scheduler_running
 logger = logging.getLogger(__name__)
 
 
+def _json_get_or_404(model, **kwargs):
+    """Fetch a single object or return a JSON 404 response.
+
+    Returns ``(obj, None)`` on success or ``(None, JsonResponse)`` when the
+    object does not exist, so AJAX endpoints always return JSON on not-found
+    instead of Django's default HTML 404 page.
+    """
+    try:
+        return model.objects.get(**kwargs), None
+    except model.DoesNotExist:
+        return None, JsonResponse(
+            {"success": False, "error": f"{model._meta.verbose_name} not found."},
+            status=404,
+        )
+
+
+def _render_instance_dashboard(request, config, single_instance):
+    """Render the per-instance dashboard for a single Pi-hole config."""
+    return render(
+        request,
+        "backup/instance_dashboard.html",
+        {
+            "config": config,
+            "backups": BackupRecord.objects.filter(config=config),
+            "credential_status": CredentialService.get_status(config),
+            "credentials_configured": CredentialService.is_configured(config),
+            "single_instance": single_instance,
+        },
+    )
+
+
 def dashboard(request):
     """Main dashboard view with smart routing based on config count.
 
@@ -34,21 +65,7 @@ def dashboard(request):
     count = configs.count()
 
     if count == 1:
-        config = configs.first()
-        backups = BackupRecord.objects.filter(config=config)
-        credential_status = CredentialService.get_status(config)
-        credentials_configured = CredentialService.is_configured(config)
-        return render(
-            request,
-            "backup/instance_dashboard.html",
-            {
-                "config": config,
-                "backups": backups,
-                "credential_status": credential_status,
-                "credentials_configured": credentials_configured,
-                "single_instance": True,
-            },
-        )
+        return _render_instance_dashboard(request, configs.first(), single_instance=True)
 
     # 0 or 2+ configs: show instance list with backup stats
     configs_annotated = configs.annotate(
@@ -79,21 +96,7 @@ def dashboard(request):
 def instance_dashboard(request, config_id):
     """Per-instance dashboard showing backup status and history."""
     config = get_object_or_404(PiholeConfig, id=config_id)
-    backups = BackupRecord.objects.filter(config=config)
-    credential_status = CredentialService.get_status(config)
-    credentials_configured = CredentialService.is_configured(config)
-
-    return render(
-        request,
-        "backup/instance_dashboard.html",
-        {
-            "config": config,
-            "backups": backups,
-            "credential_status": credential_status,
-            "credentials_configured": credentials_configured,
-            "single_instance": False,
-        },
-    )
+    return _render_instance_dashboard(request, config, single_instance=False)
 
 
 def instance_settings(request, config_id):
@@ -122,9 +125,9 @@ def settings_redirect(request):
 @require_POST
 def test_connection(request, config_id):
     """AJAX endpoint to test Pi-hole connection using environment credentials."""
-    config = PiholeConfig.objects.filter(id=config_id).first()
-    if config is None:
-        return JsonResponse({"success": False, "error": "Configuration not found."}, status=404)
+    config, error = _json_get_or_404(PiholeConfig, id=config_id)
+    if error:
+        return error
 
     try:
         creds = CredentialService.get_credentials(config)
@@ -155,9 +158,9 @@ def test_connection(request, config_id):
 @require_POST
 def create_backup(request, config_id):
     """AJAX endpoint to create a manual backup."""
-    config = PiholeConfig.objects.filter(id=config_id).first()
-    if config is None:
-        return JsonResponse({"success": False, "error": "Configuration not found."}, status=404)
+    config, error = _json_get_or_404(PiholeConfig, id=config_id)
+    if error:
+        return error
 
     try:
         service = BackupService(config)
@@ -184,7 +187,9 @@ def create_backup(request, config_id):
 @require_POST
 def delete_backup(request, backup_id):
     """AJAX endpoint to delete a backup."""
-    record = get_object_or_404(BackupRecord, id=backup_id)
+    record, error = _json_get_or_404(BackupRecord, id=backup_id)
+    if error:
+        return error
     config = record.config
 
     try:
@@ -204,11 +209,10 @@ def delete_backup(request, backup_id):
 @require_POST
 def restore_backup(request, backup_id):
     """AJAX endpoint to restore a backup to Pi-hole."""
-    record = get_object_or_404(BackupRecord, id=backup_id)
+    record, error = _json_get_or_404(BackupRecord, id=backup_id)
+    if error:
+        return error
     config = record.config
-
-    if not config:
-        return JsonResponse({"success": False, "error": "Cannot restore: Pi-hole configuration no longer exists"})
 
     try:
         service = RestoreService(config)
@@ -232,10 +236,6 @@ def download_backup(request, backup_id):
     """Download a backup file."""
     record = get_object_or_404(BackupRecord, id=backup_id)
     config = record.config
-
-    if not config:
-        messages.error(request, "Pi-hole configuration no longer exists")
-        return redirect("dashboard")
 
     service = BackupService(config)
     filepath = service.get_backup_file(record)
@@ -308,8 +308,9 @@ def login_view(request):
     return render(request, "backup/login.html", {"form": form})
 
 
+@require_POST
 def logout_view(request):
-    """Logout view."""
+    """Logout view. POST-only to prevent CSRF-driven / prefetch logouts."""
     request.session.flush()
     return redirect("login")
 

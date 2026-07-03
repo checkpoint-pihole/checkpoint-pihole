@@ -6,7 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from backup.models import BackupRecord, PiholeConfig
-from backup.services.discovery_service import discover_instances_from_env
+from backup.services.discovery_service import check_connections, discover_instances_from_env
+from backup.services.notifications import NotificationEvent
 
 
 def _clean_env(extra=None):
@@ -218,3 +219,42 @@ class TestDiscoverInstancesFromEnv:
         assert gym.is_active is True
         assert gym.connection_status == "unknown"
         assert gym.connection_error == ""
+
+
+@pytest.mark.django_db
+class TestCheckConnectionsNotifications:
+    """Tests for CONNECTION_LOST emission in check_connections()."""
+
+    def _make_unreachable_client(self, mock_client_class):
+        """Wire a patched PiholeV6Client so test_connection raises ConnectionError."""
+        client = mock_client_class.return_value.__enter__.return_value
+        client.test_connection.side_effect = ConnectionError("host down")
+
+    def test_emits_connection_lost_on_healthy_to_unreachable(self):
+        """A transition from 'ok' to 'unreachable' should emit CONNECTION_LOST once."""
+        PiholeConfig.objects.create(name="Primary", env_prefix="PRIMARY", connection_status="ok")
+
+        with (
+            patch("backup.services.discovery_service.PiholeV6Client") as mock_client_class,
+            patch("backup.services.discovery_service.safe_send_notification") as mock_notify,
+        ):
+            self._make_unreachable_client(mock_client_class)
+            results = check_connections()
+
+        assert results["PRIMARY"] == "unreachable"
+        mock_notify.assert_called_once()
+        assert NotificationEvent.CONNECTION_LOST in mock_notify.call_args.args
+
+    def test_no_notification_when_not_previously_healthy(self):
+        """An 'unknown' -> 'unreachable' transition must NOT notify (avoids spam)."""
+        PiholeConfig.objects.create(name="Primary", env_prefix="PRIMARY", connection_status="unknown")
+
+        with (
+            patch("backup.services.discovery_service.PiholeV6Client") as mock_client_class,
+            patch("backup.services.discovery_service.safe_send_notification") as mock_notify,
+        ):
+            self._make_unreachable_client(mock_client_class)
+            results = check_connections()
+
+        assert results["PRIMARY"] == "unreachable"
+        mock_notify.assert_not_called()

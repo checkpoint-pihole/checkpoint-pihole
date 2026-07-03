@@ -11,10 +11,16 @@ uv run python manage.py migrate --noinput
 echo "[2/4] Discovering Pi-hole instances..."
 uv run python manage.py discover_instances
 
+# File tracking the current scheduler PID. The monitor restarts the scheduler
+# in its own subshell, so the parent shell's SCHEDULER_PID can go stale; cleanup()
+# reads this file to always signal the live process.
+SCHEDULER_PID_FILE="/tmp/checkpoint-scheduler.pid"
+
 # Function to start scheduler
 start_scheduler() {
     uv run python manage.py runapscheduler &
     SCHEDULER_PID=$!
+    echo "$SCHEDULER_PID" > "$SCHEDULER_PID_FILE"
     echo "Scheduler started with PID: $SCHEDULER_PID"
 }
 
@@ -60,9 +66,13 @@ monitor_scheduler() {
 cleanup() {
     echo "Shutting down..."
     kill $MONITOR_PID 2>/dev/null || true
-    kill $SCHEDULER_PID 2>/dev/null || true
+    # Read the live scheduler PID from the file — the parent's SCHEDULER_PID may
+    # be stale if the monitor restarted the scheduler in its own subshell.
+    local scheduler_pid
+    scheduler_pid=$(cat "$SCHEDULER_PID_FILE" 2>/dev/null || true)
+    kill "$scheduler_pid" 2>/dev/null || true
     kill $GUNICORN_PID 2>/dev/null || true
-    wait $SCHEDULER_PID 2>/dev/null || true
+    wait "$scheduler_pid" 2>/dev/null || true
     wait $GUNICORN_PID 2>/dev/null || true
     exit 0
 }

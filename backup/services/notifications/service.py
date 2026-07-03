@@ -2,6 +2,7 @@
 
 import atexit
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from django.utils import timezone
@@ -30,18 +31,25 @@ class NotificationService:
 
     def __init__(self):
         self._executor: ThreadPoolExecutor | None = None
+        self._executor_lock = threading.Lock()
         self.settings = get_notification_settings()
         self._shutdown_registered = False
 
     @property
     def executor(self) -> ThreadPoolExecutor:
-        """Lazily create executor on first use."""
-        if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers=5)
-            if not self._shutdown_registered:
-                atexit.register(self._shutdown)
-                self._shutdown_registered = True
-        return self._executor
+        """Lazily create executor on first use (thread-safe)."""
+        # Fast path: already created
+        if self._executor is not None:
+            return self._executor
+
+        # Slow path: create under lock with double-check
+        with self._executor_lock:
+            if self._executor is None:
+                self._executor = ThreadPoolExecutor(max_workers=5)
+                if not self._shutdown_registered:
+                    atexit.register(self._shutdown)
+                    self._shutdown_registered = True
+            return self._executor
 
     def _shutdown(self):
         """Gracefully shutdown the executor."""
@@ -115,16 +123,25 @@ class NotificationService:
         return bool(self.settings.providers)
 
 
-# Singleton instance
+# Singleton instance (thread-safe)
 _service: NotificationService | None = None
+_service_lock = threading.Lock()
 
 
 def get_notification_service() -> NotificationService:
-    """Get notification service (cached singleton)."""
+    """Get notification service (cached singleton, thread-safe)."""
     global _service
-    if _service is None:
-        _service = NotificationService()
-    return _service
+
+    # Fast path: already initialized
+    if _service is not None:
+        return _service
+
+    # Slow path: need to initialize with lock
+    with _service_lock:
+        # Double-check after acquiring lock
+        if _service is None:
+            _service = NotificationService()
+        return _service
 
 
 def safe_send_notification(

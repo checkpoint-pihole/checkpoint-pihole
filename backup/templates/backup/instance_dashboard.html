@@ -30,11 +30,6 @@
     <i class="bi bi-exclamation-triangle"></i>
     No Pi-hole credentials found. Set <code>PIHOLE_{{ config.env_prefix|upper }}_URL</code> and <code>PIHOLE_{{ config.env_prefix|upper }}_PASSWORD</code> environment variables.
 </div>
-{% elif not config %}
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i>
-    No instance configured. Set <code>PIHOLE_{PREFIX}_URL</code> and <code>PIHOLE_{PREFIX}_PASSWORD</code> environment variables and restart.
-</div>
 {% else %}
 
 {% if config.connection_status == "removed" %}
@@ -331,6 +326,9 @@ async function deleteBackup(id) {
                 'Content-Type': 'application/json'
             }
         });
+        if (!(response.headers.get('content-type') || '').includes('application/json')) {
+            throw new Error(`Unexpected response (${response.status})`);
+        }
         const data = await response.json();
 
         if (data.success) {
@@ -364,6 +362,9 @@ async function restoreBackup(btn) {
                 'X-CSRFToken': getCsrfToken(),
             },
         });
+        if (!(response.headers.get('content-type') || '').includes('application/json')) {
+            throw new Error(`Unexpected response (${response.status})`);
+        }
         const data = await response.json();
 
         if (data.success) {

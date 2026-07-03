@@ -180,6 +180,14 @@ class TestDeleteBackupEndpoint:
         response = client.post(url)
         assert response.status_code == 404
 
+    def test_404_is_json_not_html(self, client, auth_disabled_settings):
+        """A not-found delete should return a JSON 404 (not Django's HTML page)."""
+        url = reverse("delete_backup", args=[99999])
+        response = client.post(url)
+        assert response.status_code == 404
+        assert response["Content-Type"] == "application/json"
+        assert response.json()["success"] is False
+
     def test_reports_failure_and_keeps_record_when_unlink_fails(
         self, client, pihole_config, backup_record, temp_backup_dir, auth_disabled_settings
     ):
@@ -234,6 +242,14 @@ class TestRestoreBackupEndpoint:
         url = reverse("restore_backup", args=[99999])
         response = client.post(url)
         assert response.status_code == 404
+
+    def test_404_is_json_not_html(self, client, auth_disabled_settings):
+        """A not-found restore should return a JSON 404 (not Django's HTML page)."""
+        url = reverse("restore_backup", args=[99999])
+        response = client.post(url)
+        assert response.status_code == 404
+        assert response["Content-Type"] == "application/json"
+        assert response.json()["success"] is False
 
     def test_only_accepts_post(self, client, backup_record, auth_disabled_settings):
         """Should only accept POST requests."""
@@ -424,12 +440,21 @@ class TestLogoutView:
     """Tests for logout view."""
 
     def test_logout_clears_session_and_redirects(self, authenticated_client):
-        """Logout should clear session and redirect to login."""
+        """POST logout should clear session and redirect to login."""
         url = reverse("logout")
-        response = authenticated_client.get(url)
+        response = authenticated_client.post(url)
 
         assert response.status_code == 302
         assert response.url == reverse("login")
 
         # Session should be cleared
         assert "authenticated" not in authenticated_client.session
+
+    def test_logout_rejects_get(self, authenticated_client):
+        """GET logout should be rejected (405) and must not flush the session."""
+        url = reverse("logout")
+        response = authenticated_client.get(url)
+
+        assert response.status_code == 405
+        # Session must remain intact after a rejected GET
+        assert authenticated_client.session["authenticated"] is True

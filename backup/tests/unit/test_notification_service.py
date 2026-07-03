@@ -3,11 +3,12 @@
 from unittest.mock import MagicMock, patch
 
 from backup.services.notifications import NotificationEvent
+from backup.services.notifications.base import NotificationPayload
 from backup.services.notifications.service import (
     NotificationService,
     safe_send_notification,
 )
-from backup.services.notifications.telegram import _escape_markdown
+from backup.services.notifications.telegram import TelegramProvider, _escape_markdown
 
 
 class TestEscapeMarkdown:
@@ -65,6 +66,59 @@ class TestEscapeMarkdown:
     def test_consecutive_special_characters(self):
         """Should handle consecutive special characters."""
         assert _escape_markdown("***") == r"\*\*\*"
+
+
+class TestTelegramProviderSend:
+    """Tests for TelegramProvider.send()."""
+
+    def _payload(self):
+        """Payload with MarkdownV2 special characters in every field."""
+        return NotificationPayload(
+            event=NotificationEvent.BACKUP_FAILED,
+            title="Backup_failed!",
+            message="Error: [disk] full (100%).",
+            pihole_name="pi-hole.local",
+            timestamp="2026-07-02 10:30:00",
+            details={"Reason": "out-of-space*"},
+        )
+
+    def test_send_escapes_markdownv2_and_posts(self):
+        """send() should escape special chars, set MarkdownV2 + chat_id, and return True on 200."""
+        provider = TelegramProvider(bot_token="BOT123", chat_id="CHAT456")
+
+        with patch("backup.services.notifications.telegram.requests.post") as mock_post:
+            mock_post.return_value = MagicMock(status_code=200)
+            result = provider.send(self._payload())
+
+        assert result is True
+        mock_post.assert_called_once()
+
+        body = mock_post.call_args.kwargs["json"]
+        assert body["parse_mode"] == "MarkdownV2"
+        assert body["chat_id"] == "CHAT456"
+
+        text = body["text"]
+        # Escaped forms are present...
+        assert r"Backup\_failed\!" in text
+        assert r"\[disk\]" in text
+        assert r"\(100%\)" in text
+        assert r"pi\-hole\.local" in text
+        assert r"2026\-07\-02" in text
+        assert r"out\-of\-space\*" in text
+        # ...and the raw (unescaped) forms are NOT, proving escaping happened
+        assert "Backup_failed!" not in text
+        assert "[disk]" not in text
+        assert "pi-hole.local" not in text
+
+    def test_send_returns_false_on_non_200(self):
+        """send() should return False when Telegram responds with a non-200 status."""
+        provider = TelegramProvider(bot_token="BOT123", chat_id="CHAT456")
+
+        with patch("backup.services.notifications.telegram.requests.post") as mock_post:
+            mock_post.return_value = MagicMock(status_code=500)
+            result = provider.send(self._payload())
+
+        assert result is False
 
 
 class TestSafeSendNotification:

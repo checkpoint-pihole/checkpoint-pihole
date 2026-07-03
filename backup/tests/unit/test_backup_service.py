@@ -10,6 +10,7 @@ import responses
 
 from backup.models import BackupRecord
 from backup.services.backup_service import BackupService
+from backup.services.checksum import calculate_checksum
 
 
 @pytest.mark.django_db
@@ -396,16 +397,15 @@ class TestBackupServiceGenerateFilename:
 
 @pytest.mark.django_db
 class TestBackupServiceCalculateChecksum:
-    """Tests for BackupService._calculate_checksum()."""
+    """Tests for the shared calculate_checksum helper used by BackupService."""
 
     def test_calculate_checksum_returns_sha256(self, pihole_config, temp_backup_dir):
-        """_calculate_checksum should return SHA256 hex digest."""
+        """calculate_checksum should return SHA256 hex digest."""
         test_data = b"test file content"
         test_file = temp_backup_dir / "test_checksum.txt"
         test_file.write_bytes(test_data)
 
-        service = BackupService(pihole_config)
-        checksum = service._calculate_checksum(test_file)
+        checksum = calculate_checksum(test_file)
 
         expected = hashlib.sha256(test_data).hexdigest()
         assert checksum == expected
