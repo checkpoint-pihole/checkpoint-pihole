@@ -11,7 +11,7 @@ jobs:
   tests:
     permissions:
       contents: read
-    uses: ljmerza/misc-actions/.github/workflows/python-tests.yml@v2
+    uses: ljmerza/misc-actions/.github/workflows/python-tests.yml@0cd02753f25a43442e68158d26738ec3ad8a50d3 # v2
     with:
       coverage-source: backup
       env-vars: |
@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: ljmerza/misc-actions/.github/workflows/docker-ci.yml@v2
+    uses: ljmerza/misc-actions/.github/workflows/docker-ci.yml@0cd02753f25a43442e68158d26738ec3ad8a50d3 # v2
     with:
       image-name: ghcr.io/${{ github.repository_owner }}/checkpoint-pihole
     secrets: inherit

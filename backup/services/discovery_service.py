@@ -9,6 +9,8 @@ from django.core.exceptions import ValidationError
 
 from backup.models import PiholeConfig
 from backup.services.credential_service import CredentialService
+from backup.services.notifications import NotificationEvent
+from backup.services.notifications.service import get_notification_service, safe_send_notification
 from backup.services.pihole_client import PiholeV6Client
 
 logger = logging.getLogger(__name__)
@@ -121,6 +123,24 @@ def discover_instances_from_env(force=False):
     for prefix in sorted(prefixes):
         existing = PiholeConfig.objects.filter(env_prefix=prefix).first()
 
+        # Reactivate an instance that was previously marked removed now that
+        # its env var is present again. Removal is the only path that sets
+        # is_active=False (it always also sets connection_status='removed'),
+        # so this restores scheduled backups without clobbering instances that
+        # are inactive for other reasons. Runs regardless of the force flag —
+        # runapscheduler filters on is_active=True.
+        if existing and existing.connection_status == "removed":
+            existing.is_active = True
+            existing.connection_status = "unknown"
+            existing.connection_error = ""
+            existing.save(update_fields=["is_active", "connection_status", "connection_error"])
+            logger.info(
+                "Reactivated instance %s (pk=%d) — PIHOLE_%s_URL restored",
+                existing.name,
+                existing.pk,
+                prefix,
+            )
+
         if existing and not force:
             logger.debug(
                 "Instance with env_prefix=%s already exists (pk=%d), skipping",
@@ -183,6 +203,9 @@ def check_connections():
             results[config.env_prefix] = "removed"
             continue
 
+        # Remember the status before this check so we can detect transitions
+        previous_status = config.connection_status
+
         if not CredentialService.is_configured(config):
             config.connection_status = "not_configured"
             config.connection_error = ""
@@ -212,5 +235,17 @@ def check_connections():
 
         config.save(update_fields=["connection_status", "connection_error"])
         results[config.env_prefix] = config.connection_status
+
+        # Emit CONNECTION_LOST only on a healthy -> unreachable transition, so it
+        # fires once when connectivity drops rather than every check while down.
+        if previous_status == "ok" and config.connection_status == "unreachable":
+            safe_send_notification(
+                get_notification_service(),
+                config.name,
+                NotificationEvent.CONNECTION_LOST,
+                "Pi-hole Unreachable",
+                f"Lost connection to {config.name}.",
+                details={"Error": config.connection_error} if config.connection_error else None,
+            )
 
     return results

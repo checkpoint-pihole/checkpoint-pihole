@@ -1,6 +1,5 @@
 """Backup creation and management service."""
 
-import hashlib
 import logging
 import re
 import uuid
@@ -10,12 +9,58 @@ from django.conf import settings
 from django.utils import timezone
 
 from ..models import BackupRecord, PiholeConfig
+from .checksum import calculate_checksum
 from .credential_service import CredentialService
 from .notifications import NotificationEvent
 from .notifications.service import get_notification_service, safe_send_notification
 from .pihole_client import PiholeV6Client
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_backup_path(record: BackupRecord) -> Path | None:
+    """Resolve a record's file_path, refusing anything outside BACKUP_DIR.
+
+    Guards against a tampered ``file_path`` (e.g. ``../../etc/passwd``) pointing
+    outside the backup directory. Returns the resolved ``Path`` only when
+    ``file_path`` is set and stays within ``settings.BACKUP_DIR``; returns
+    ``None`` for an empty path or one that resolves outside the backup dir.
+    Existence is intentionally NOT checked here — callers decide how to handle a
+    contained-but-missing file.
+    """
+    if not record.file_path:
+        return None
+
+    backup_dir = Path(settings.BACKUP_DIR).resolve()
+    filepath = Path(record.file_path).resolve()
+    try:
+        filepath.relative_to(backup_dir)
+    except ValueError:
+        logger.warning("Refusing backup path outside backup dir: %s", filepath)
+        return None
+    return filepath
+
+
+def delete_backup_file_and_record(record: BackupRecord) -> bool:
+    """Delete a backup's file and its DB record.
+
+    The file is only unlinked when it resolves to a path inside BACKUP_DIR, so
+    a record whose file_path was tampered with (edited via the admin, or an
+    imported/legacy database) cannot make an unattended caller delete an
+    arbitrary file. Returns True when the record is deleted; returns False
+    without deleting the record if the file exists but could not be removed, so
+    it is retried on the next run.
+    """
+    filepath = resolve_backup_path(record)
+    if filepath is not None and filepath.exists():
+        try:
+            filepath.unlink()
+        except OSError as e:
+            logger.error("Failed to delete file %s: %s", filepath, e)
+            return False
+
+    record.delete()
+    return True
 
 
 class BackupService:
@@ -53,14 +98,6 @@ class BackupService:
 
         return f"checkpoint_pihole_{safe_name}_{timestamp}_{unique_suffix}.zip"
 
-    def _calculate_checksum(self, filepath: Path) -> str:
-        """Calculate SHA256 checksum of a file."""
-        sha256 = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
-
     def create_backup(self, is_manual: bool = False) -> BackupRecord:
         """
         Create a new backup from Pi-hole.
@@ -92,7 +129,7 @@ class BackupService:
                 f.write(backup_data)
 
             # Calculate checksum
-            checksum = self._calculate_checksum(filepath)
+            checksum = calculate_checksum(filepath)
 
             # Create record
             record = BackupRecord.objects.create(
@@ -164,32 +201,13 @@ class BackupService:
         Returns True if deleted successfully.
         """
         logger.info(f"Deleting backup: {record.filename}")
-
-        # Delete file if it exists and is within the backup directory
-        if record.file_path:
-            backup_dir = Path(settings.BACKUP_DIR).resolve()
-            filepath = Path(record.file_path).resolve()
-            try:
-                filepath.relative_to(backup_dir)
-            except ValueError:
-                logger.warning("Skipping file outside backup dir: %s", filepath)
-            else:
-                if filepath.exists():
-                    try:
-                        filepath.unlink()
-                    except OSError as e:
-                        logger.error(f"Failed to delete file {filepath}: {e}")
-                        return False
-
-        # Delete record
-        record.delete()
-        return True
+        return delete_backup_file_and_record(record)
 
     def get_backup_file(self, record: BackupRecord) -> Path | None:
-        """Get the path to a backup file if it exists."""
-        if not record.file_path:
+        """Get the path to a backup file if it exists within the backup dir."""
+        filepath = resolve_backup_path(record)
+        if filepath is None:
             return None
-        filepath = Path(record.file_path)
         return filepath if filepath.exists() else None
 
     def _safe_cleanup(self, filepath: Path) -> None:

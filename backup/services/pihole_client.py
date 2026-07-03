@@ -82,6 +82,37 @@ class PiholeV6Client:
         """Get headers with session ID."""
         return {"X-FTL-SID": self.session_id} if self.session_id else {}
 
+    def _request_with_reauth(self, method: str, endpoint: str, **kwargs) -> requests.Response:
+        """Make an authenticated request, re-authenticating once on a 401.
+
+        Ensures a session exists, sends the request with the session header, and
+        on a 401 (expired session) clears the session, re-authenticates, and
+        retries exactly once. Raises for any remaining HTTP error status.
+
+        Args:
+            method: HTTP method (e.g. "GET", "POST").
+            endpoint: API path appended to the base URL.
+            **kwargs: Extra arguments forwarded to ``requests`` (e.g. timeout,
+                stream, files).
+
+        Returns:
+            The successful ``requests.Response``.
+        """
+        self._ensure_authenticated()
+        url = self._get_url(endpoint)
+
+        response = self._session.request(method, url, headers=self._get_headers(), verify=self.verify_ssl, **kwargs)
+
+        if response.status_code == 401:
+            # Session expired, re-authenticate and retry once
+            logger.info("Session expired, re-authenticating...")
+            self.session_id = None
+            self.authenticate()
+            response = self._session.request(method, url, headers=self._get_headers(), verify=self.verify_ssl, **kwargs)
+
+        response.raise_for_status()
+        return response
+
     def test_connection(self) -> dict:
         """
         Test connection to Pi-hole by authenticating and fetching version info.
@@ -89,26 +120,25 @@ class PiholeV6Client:
         Returns version info dict on success.
         Raises exception on failure.
         """
+        # Authenticate up front so a bad password surfaces as the connection result
         self.authenticate()
+        response = self._request_with_reauth("GET", "/api/info/version", timeout=30)
+        return response.json()
 
-        try:
-            response = self._session.get(
-                self._get_url("/api/info/version"), headers=self._get_headers(), verify=self.verify_ssl, timeout=30
+    @staticmethod
+    def _validate_zip_content(content: bytes) -> None:
+        """Ensure the downloaded body is a real ZIP (Teleporter export).
+
+        Pi-hole returns a ZIP archive, but a reverse proxy or an error page can
+        return HTML/JSON with a 200 status. Storing that as a "success" backup
+        would silently corrupt the backup set, so reject anything that does not
+        start with the ZIP local-file-header magic bytes.
+        """
+        if not content.startswith(b"PK\x03\x04"):
+            raise ValueError(
+                "Teleporter response was not a valid ZIP archive "
+                "(missing ZIP signature); refusing to store corrupt backup"
             )
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 401:
-                # Session expired, try re-auth
-                self.session_id = None
-                self.authenticate()
-                response = self._session.get(
-                    self._get_url("/api/info/version"), headers=self._get_headers(), verify=self.verify_ssl, timeout=30
-                )
-                response.raise_for_status()
-                return response.json()
-            raise
 
     def download_teleporter_backup(self) -> bytes:
         """
@@ -116,43 +146,17 @@ class PiholeV6Client:
 
         Returns the ZIP file content as bytes.
         """
-        self._ensure_authenticated()
+        response = self._request_with_reauth("GET", "/api/teleporter", timeout=120, stream=True)
 
-        try:
-            response = self._session.get(
-                self._get_url("/api/teleporter"),
-                headers=self._get_headers(),
-                verify=self.verify_ssl,
-                timeout=120,
-                stream=True,
-            )
-            response.raise_for_status()
+        # Verify we got a ZIP file (applies to the retried request too)
+        content_type = response.headers.get("Content-Type", "")
+        if "zip" not in content_type and "octet-stream" not in content_type:
+            logger.warning(f"Unexpected content type: {content_type}")
 
-            # Verify we got a ZIP file
-            content_type = response.headers.get("Content-Type", "")
-            if "zip" not in content_type and "octet-stream" not in content_type:
-                logger.warning(f"Unexpected content type: {content_type}")
-
-            content = response.content
-            logger.info(f"Downloaded backup: {len(content)} bytes")
-            return content
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 401:
-                # Session expired, try re-auth and retry
-                logger.info("Session expired, re-authenticating...")
-                self.session_id = None
-                self.authenticate()
-                response = self._session.get(
-                    self._get_url("/api/teleporter"),
-                    headers=self._get_headers(),
-                    verify=self.verify_ssl,
-                    timeout=120,
-                    stream=True,
-                )
-                response.raise_for_status()
-                return response.content
-            raise
+        content = response.content
+        self._validate_zip_content(content)
+        logger.info(f"Downloaded backup: {len(content)} bytes")
+        return content
 
     def upload_teleporter_backup(self, backup_data: bytes) -> dict:
         """
@@ -167,34 +171,6 @@ class PiholeV6Client:
         Raises:
             Exception on failure
         """
-        self._ensure_authenticated()
-
-        try:
-            files = {"file": ("backup.zip", backup_data, "application/zip")}
-            response = self._session.post(
-                self._get_url("/api/teleporter"),
-                headers=self._get_headers(),
-                files=files,
-                verify=self.verify_ssl,
-                timeout=120,
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 401:
-                # Session expired, try re-auth and retry
-                logger.info("Session expired, re-authenticating...")
-                self.session_id = None
-                self.authenticate()
-                files = {"file": ("backup.zip", backup_data, "application/zip")}
-                response = self._session.post(
-                    self._get_url("/api/teleporter"),
-                    headers=self._get_headers(),
-                    files=files,
-                    verify=self.verify_ssl,
-                    timeout=120,
-                )
-                response.raise_for_status()
-                return response.json()
-            raise
+        files = {"file": ("backup.zip", backup_data, "application/zip")}
+        response = self._request_with_reauth("POST", "/api/teleporter", files=files, timeout=120)
+        return response.json()

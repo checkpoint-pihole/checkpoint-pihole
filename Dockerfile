@@ -38,10 +38,24 @@ RUN uv sync --frozen --no-dev
 
 RUN mkdir -p /app/data /app/backups /app/staticfiles
 
-RUN uv run python manage.py collectstatic --noinput
+# Use a throwaway build-only SECRET_KEY so collectstatic does not generate and
+# bake a persistent /app/data/.secret_key into the image layer. Remove any key
+# file just in case, so runtime generates/uses its own.
+RUN SECRET_KEY=build-time-only uv run python manage.py collectstatic --noinput \
+    && rm -f /app/data/.secret_key
 
 # Make entrypoint executable
 RUN chmod +x /app/entrypoint.sh
+
+# Run as non-root user (ADR-0001). Create appuser and hand it ownership of the
+# whole app tree, including the runtime-writable data/, backups/, and staticfiles
+# dirs. NOTE: ./data and ./backups are bind mounts in docker-compose.yml owned by
+# the host user; running as uid 1000 requires those host dirs be writable by uid
+# 1000 (chown on host or a PUID pattern) or writes will fail.
+RUN useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8000
 

@@ -6,7 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from backup.models import BackupRecord, PiholeConfig
-from backup.services.discovery_service import discover_instances_from_env
+from backup.services.discovery_service import check_connections, discover_instances_from_env
+from backup.services.notifications import NotificationEvent
 
 
 def _clean_env(extra=None):
@@ -186,3 +187,74 @@ class TestDiscoverInstancesFromEnv:
 
         assert result["removed"] == []
         assert "GYM" in result["skipped"]
+
+    def test_reactivates_instance_when_env_var_restored(self):
+        """Re-adding a removed instance's env var should reactivate it.
+
+        Regression: a removed instance stays is_active=False /
+        connection_status='removed' even after its PIHOLE_{PREFIX}_URL is
+        restored, so runapscheduler (which filters is_active=True) never resumes
+        its scheduled backups. Discovery must reset the removal flags.
+        """
+        env_with = _clean_env({"PIHOLE_GYM_URL": "https://192.168.1.186", "PIHOLE_GYM_PASSWORD": "secret"})
+
+        # First discovery creates the instance.
+        with patch.dict("os.environ", env_with, clear=True):
+            discover_instances_from_env()
+
+        # Env var disappears -> instance is marked removed and deactivated.
+        with patch.dict("os.environ", _clean_env({}), clear=True):
+            removed_result = discover_instances_from_env()
+        assert "GYM" in removed_result["removed"]
+        gym = PiholeConfig.objects.get(env_prefix="GYM")
+        assert gym.connection_status == "removed"
+        assert gym.is_active is False
+
+        # Env var is restored -> instance must be reactivated (no force needed).
+        with patch.dict("os.environ", env_with, clear=True):
+            readd_result = discover_instances_from_env()
+
+        assert "GYM" in readd_result["skipped"]
+        gym.refresh_from_db()
+        assert gym.is_active is True
+        assert gym.connection_status == "unknown"
+        assert gym.connection_error == ""
+
+
+@pytest.mark.django_db
+class TestCheckConnectionsNotifications:
+    """Tests for CONNECTION_LOST emission in check_connections()."""
+
+    def _make_unreachable_client(self, mock_client_class):
+        """Wire a patched PiholeV6Client so test_connection raises ConnectionError."""
+        client = mock_client_class.return_value.__enter__.return_value
+        client.test_connection.side_effect = ConnectionError("host down")
+
+    def test_emits_connection_lost_on_healthy_to_unreachable(self):
+        """A transition from 'ok' to 'unreachable' should emit CONNECTION_LOST once."""
+        PiholeConfig.objects.create(name="Primary", env_prefix="PRIMARY", connection_status="ok")
+
+        with (
+            patch("backup.services.discovery_service.PiholeV6Client") as mock_client_class,
+            patch("backup.services.discovery_service.safe_send_notification") as mock_notify,
+        ):
+            self._make_unreachable_client(mock_client_class)
+            results = check_connections()
+
+        assert results["PRIMARY"] == "unreachable"
+        mock_notify.assert_called_once()
+        assert NotificationEvent.CONNECTION_LOST in mock_notify.call_args.args
+
+    def test_no_notification_when_not_previously_healthy(self):
+        """An 'unknown' -> 'unreachable' transition must NOT notify (avoids spam)."""
+        PiholeConfig.objects.create(name="Primary", env_prefix="PRIMARY", connection_status="unknown")
+
+        with (
+            patch("backup.services.discovery_service.PiholeV6Client") as mock_client_class,
+            patch("backup.services.discovery_service.safe_send_notification") as mock_notify,
+        ):
+            self._make_unreachable_client(mock_client_class)
+            results = check_connections()
+
+        assert results["PRIMARY"] == "unreachable"
+        mock_notify.assert_not_called()

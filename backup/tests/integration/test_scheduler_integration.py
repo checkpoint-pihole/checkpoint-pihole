@@ -173,17 +173,25 @@ class TestScheduleBackupJobs:
 
         assert isinstance(trigger, CronTrigger)
 
-    def test_removes_existing_job_before_adding_new(self, temp_backup_dir):
-        """Should remove existing job before adding new one."""
+    def test_replaces_existing_job_via_replace_existing(self, temp_backup_dir):
+        """Should rely on add_job(replace_existing=True) instead of an explicit remove.
+
+        The old remove/add sequence opened a race window; jobs are now replaced
+        atomically and remove_job is never called.
+        """
         config = PiholeConfigFactory()
 
         mock_scheduler = MagicMock()
 
         schedule_backup_jobs(mock_scheduler)
 
-        # Should attempt to remove existing job
-        expected_job_id = f"backup_{config.id}"
-        mock_scheduler.remove_job.assert_called_with(expected_job_id)
+        # No explicit remove_job — replacement happens via add_job
+        mock_scheduler.remove_job.assert_not_called()
+
+        add_call = next(
+            call for call in mock_scheduler.add_job.call_args_list if call.kwargs.get("id") == f"backup_{config.id}"
+        )
+        assert add_call.kwargs.get("replace_existing") is True
 
     def test_skips_inactive_configs(self, temp_backup_dir):
         """Should skip inactive configs."""
@@ -198,19 +206,6 @@ class TestScheduleBackupJobs:
         job_ids = [call.kwargs.get("id") for call in mock_scheduler.add_job.call_args_list]
         assert f"backup_{active.id}" in job_ids
         assert f"backup_{inactive.id}" not in job_ids
-
-    def test_handles_remove_job_exception(self, temp_backup_dir):
-        """Should handle exception when removing non-existent job."""
-        PiholeConfigFactory()
-
-        mock_scheduler = MagicMock()
-        mock_scheduler.remove_job.side_effect = Exception("Job not found")
-
-        # Should not raise exception
-        schedule_backup_jobs(mock_scheduler)
-
-        # Should still add the job
-        mock_scheduler.add_job.assert_called()
 
 
 @pytest.mark.django_db

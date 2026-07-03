@@ -6,7 +6,7 @@ on:
 
 jobs:
   cleanup:
-    uses: ljmerza/misc-actions/.github/workflows/cleanup-pr-image.yml@v2
+    uses: ljmerza/misc-actions/.github/workflows/cleanup-pr-image.yml@0cd02753f25a43442e68158d26738ec3ad8a50d3 # v2
     with:
       package-name: checkpoint-pihole
     secrets: inherit

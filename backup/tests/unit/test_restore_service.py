@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from backup.services.checksum import calculate_checksum
 from backup.services.restore_service import RestoreService
 
 
@@ -69,8 +70,8 @@ class TestRestoreServiceRestoreBackup:
         with pytest.raises(ValueError, match="checksum mismatch"):
             service.restore_backup(record)
 
-    def test_restore_no_checksum_skips_verification(self, pihole_config, temp_backup_dir):
-        """Should skip checksum verification when record has no checksum."""
+    def test_restore_none_checksum_fails(self, pihole_config, temp_backup_dir):
+        """A missing (None) checksum should fail restore, not skip verification."""
         backup_content = b"PK\x03\x04test backup content"
         filepath = temp_backup_dir / "test_restore.zip"
         filepath.write_bytes(backup_content)
@@ -83,16 +84,17 @@ class TestRestoreServiceRestoreBackup:
 
         with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
             mock_client = MagicMock()
-            mock_client.upload_teleporter_backup.return_value = {"status": "success"}
             mock_client_class.return_value = mock_client
 
             service = RestoreService(pihole_config)
-            result = service.restore_backup(record)
+            with pytest.raises(ValueError, match="checksum missing"):
+                service.restore_backup(record)
 
-            assert result["status"] == "success"
+            # Must refuse before uploading anything to Pi-hole
+            mock_client.upload_teleporter_backup.assert_not_called()
 
-    def test_restore_empty_checksum_skips_verification(self, pihole_config, temp_backup_dir):
-        """Should skip checksum verification when record has empty checksum."""
+    def test_restore_empty_checksum_fails(self, pihole_config, temp_backup_dir):
+        """A blank ("") checksum should fail restore, not skip verification."""
         backup_content = b"PK\x03\x04test backup content"
         filepath = temp_backup_dir / "test_restore.zip"
         filepath.write_bytes(backup_content)
@@ -105,13 +107,37 @@ class TestRestoreServiceRestoreBackup:
 
         with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
             mock_client = MagicMock()
-            mock_client.upload_teleporter_backup.return_value = {"status": "success"}
             mock_client_class.return_value = mock_client
 
             service = RestoreService(pihole_config)
-            result = service.restore_backup(record)
+            with pytest.raises(ValueError, match="checksum missing"):
+                service.restore_backup(record)
 
-            assert result["status"] == "success"
+            mock_client.upload_teleporter_backup.assert_not_called()
+
+    def test_restore_refuses_path_outside_backup_dir(self, pihole_config, temp_backup_dir, tmp_path):
+        """Restore must refuse a record whose file_path resolves outside BACKUP_DIR."""
+        # An existing file located OUTSIDE the configured backup dir (tmp_path is a
+        # separate tree from temp_backup_dir, which sets settings.BACKUP_DIR).
+        outside_content = b"PK\x03\x04malicious"
+        outside_file = tmp_path / "outside.zip"
+        outside_file.write_bytes(outside_content)
+
+        record = MagicMock()
+        record.file_path = str(outside_file)
+        record.filename = "outside.zip"
+        record.checksum = hashlib.sha256(outside_content).hexdigest()
+
+        with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+
+            service = RestoreService(pihole_config)
+            # Refused even though the file exists and its checksum would match.
+            with pytest.raises(FileNotFoundError):
+                service.restore_backup(record)
+
+            mock_client.upload_teleporter_backup.assert_not_called()
 
     def test_restore_creates_client_with_env_credentials(self, pihole_config, temp_backup_dir, settings):
         """Should create Pi-hole client with environment credentials."""
@@ -122,7 +148,7 @@ class TestRestoreServiceRestoreBackup:
         record = MagicMock()
         record.file_path = str(filepath)
         record.filename = "test_restore.zip"
-        record.checksum = None
+        record.checksum = hashlib.sha256(backup_content).hexdigest()
 
         with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
             mock_client = MagicMock()
@@ -147,7 +173,7 @@ class TestRestoreServiceRestoreBackup:
         record = MagicMock()
         record.file_path = str(filepath)
         record.filename = "test_restore.zip"
-        record.checksum = None
+        record.checksum = hashlib.sha256(backup_content).hexdigest()
 
         with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
             mock_client = MagicMock()
@@ -161,7 +187,7 @@ class TestRestoreServiceRestoreBackup:
 
 
 class TestRestoreServiceCalculateChecksum:
-    """Tests for RestoreService._calculate_checksum()."""
+    """Tests for the shared calculate_checksum helper used by RestoreService."""
 
     def test_calculate_checksum_returns_sha256(self, pihole_config):
         """Should return SHA256 checksum of file."""
@@ -173,8 +199,41 @@ class TestRestoreServiceCalculateChecksum:
             filepath = Path(f.name)
 
         try:
-            service = RestoreService(pihole_config)
-            result = service._calculate_checksum(filepath)
+            result = calculate_checksum(filepath)
             assert result == expected_checksum
         finally:
             filepath.unlink()
+
+
+@pytest.mark.django_db
+class TestChecksumBackupRestoreRoundTrip:
+    """Verify backup and restore agree on the shared checksum implementation."""
+
+    def test_backup_checksum_passes_restore_verification(self, pihole_config, temp_backup_dir):
+        """A checksum computed at backup time must satisfy restore's verification.
+
+        Both services call the same calculate_checksum helper, so a restore of an
+        untampered file must not raise a checksum-mismatch ValueError.
+        """
+        backup_content = b"PK\x03\x04round trip backup content"
+        filepath = temp_backup_dir / "roundtrip.zip"
+        filepath.write_bytes(backup_content)
+
+        # Checksum recorded by the backup path
+        recorded_checksum = calculate_checksum(filepath)
+
+        record = MagicMock()
+        record.file_path = str(filepath)
+        record.filename = "roundtrip.zip"
+        record.checksum = recorded_checksum
+
+        with patch("backup.services.restore_service.PiholeV6Client") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.upload_teleporter_backup.return_value = {"status": "success"}
+            mock_client_class.return_value = mock_client
+
+            service = RestoreService(pihole_config)
+            result = service.restore_backup(record)
+
+        assert result["status"] == "success"
+        mock_client.upload_teleporter_backup.assert_called_once_with(backup_content)
