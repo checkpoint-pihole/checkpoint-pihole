@@ -4,6 +4,8 @@ import os
 from django.core.validators import RegexValidator
 from django.db import models
 
+from config.env import get_bool_env
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,7 +93,7 @@ class PiholeConfig(models.Model):
         prefix = self.env_prefix.upper()
         url = os.environ.get(f"PIHOLE_{prefix}_URL", "")
         password = os.environ.get(f"PIHOLE_{prefix}_PASSWORD", "")
-        verify_ssl = os.environ.get(f"PIHOLE_{prefix}_VERIFY_SSL", "false").lower() == "true"
+        verify_ssl = get_bool_env(f"PIHOLE_{prefix}_VERIFY_SSL", False)
 
         return {
             "url": url,

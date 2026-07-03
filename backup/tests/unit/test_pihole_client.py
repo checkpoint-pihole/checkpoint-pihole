@@ -254,11 +254,11 @@ class TestPiholeV6ClientDownloadTeleporterBackup:
             json={"session": {"sid": "my-session-id", "validity": 300}},
             status=200,
         )
-        # Mock teleporter endpoint
+        # Mock teleporter endpoint (body must be a valid ZIP to pass validation)
         responses.add(
             responses.GET,
             "https://pihole.local/api/teleporter",
-            body=b"backup",
+            body=b"PK\x03\x04backup",
             status=200,
         )
 
@@ -332,6 +332,64 @@ class TestPiholeV6ClientDownloadTeleporterBackup:
         result = client.download_teleporter_backup()
 
         assert result == backup_data
+
+    @responses.activate
+    def test_download_rejects_non_zip_body(self):
+        """A 200 response whose body is not a ZIP should raise instead of returning garbage."""
+        # Mock auth
+        responses.add(
+            responses.POST,
+            "https://pihole.local/api/auth",
+            json={"session": {"sid": "test-session", "validity": 300}},
+            status=200,
+        )
+        # Teleporter returns an HTML error page with a 200 status
+        responses.add(
+            responses.GET,
+            "https://pihole.local/api/teleporter",
+            body=b"<html><body>Bad Gateway</body></html>",
+            status=200,
+            content_type="text/html",
+        )
+
+        client = PiholeV6Client("https://pihole.local", "password")
+        with pytest.raises(ValueError, match="ZIP"):
+            client.download_teleporter_backup()
+
+    @responses.activate
+    def test_download_rejects_non_zip_body_on_retry(self):
+        """The 401-reauth retry path must also validate the ZIP signature."""
+        # Mock initial auth
+        responses.add(
+            responses.POST,
+            "https://pihole.local/api/auth",
+            json={"session": {"sid": "session-1", "validity": 300}},
+            status=200,
+        )
+        # First teleporter call 401s
+        responses.add(
+            responses.GET,
+            "https://pihole.local/api/teleporter",
+            status=401,
+        )
+        # Re-auth
+        responses.add(
+            responses.POST,
+            "https://pihole.local/api/auth",
+            json={"session": {"sid": "session-2", "validity": 300}},
+            status=200,
+        )
+        # Retried teleporter call returns a non-ZIP 200 body
+        responses.add(
+            responses.GET,
+            "https://pihole.local/api/teleporter",
+            body=b"not a zip at all",
+            status=200,
+        )
+
+        client = PiholeV6Client("https://pihole.local", "password")
+        with pytest.raises(ValueError, match="ZIP"):
+            client.download_teleporter_backup()
 
 
 class TestPiholeV6ClientUploadTeleporterBackup:

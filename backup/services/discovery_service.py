@@ -121,6 +121,24 @@ def discover_instances_from_env(force=False):
     for prefix in sorted(prefixes):
         existing = PiholeConfig.objects.filter(env_prefix=prefix).first()
 
+        # Reactivate an instance that was previously marked removed now that
+        # its env var is present again. Removal is the only path that sets
+        # is_active=False (it always also sets connection_status='removed'),
+        # so this restores scheduled backups without clobbering instances that
+        # are inactive for other reasons. Runs regardless of the force flag —
+        # runapscheduler filters on is_active=True.
+        if existing and existing.connection_status == "removed":
+            existing.is_active = True
+            existing.connection_status = "unknown"
+            existing.connection_error = ""
+            existing.save(update_fields=["is_active", "connection_status", "connection_error"])
+            logger.info(
+                "Reactivated instance %s (pk=%d) — PIHOLE_%s_URL restored",
+                existing.name,
+                existing.pk,
+                prefix,
+            )
+
         if existing and not force:
             logger.debug(
                 "Instance with env_prefix=%s already exists (pk=%d), skipping",

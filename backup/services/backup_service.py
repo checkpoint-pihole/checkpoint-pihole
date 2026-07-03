@@ -41,6 +41,28 @@ def resolve_backup_path(record: BackupRecord) -> Path | None:
     return filepath
 
 
+def delete_backup_file_and_record(record: BackupRecord) -> bool:
+    """Delete a backup's file and its DB record.
+
+    The file is only unlinked when it resolves to a path inside BACKUP_DIR, so
+    a record whose file_path was tampered with (edited via the admin, or an
+    imported/legacy database) cannot make an unattended caller delete an
+    arbitrary file. Returns True when the record is deleted; returns False
+    without deleting the record if the file exists but could not be removed, so
+    it is retried on the next run.
+    """
+    filepath = resolve_backup_path(record)
+    if filepath is not None and filepath.exists():
+        try:
+            filepath.unlink()
+        except OSError as e:
+            logger.error("Failed to delete file %s: %s", filepath, e)
+            return False
+
+    record.delete()
+    return True
+
+
 class BackupService:
     """Service for creating and managing Pi-hole backups."""
 
@@ -187,19 +209,7 @@ class BackupService:
         Returns True if deleted successfully.
         """
         logger.info(f"Deleting backup: {record.filename}")
-
-        # Delete file if it exists and is within the backup directory
-        filepath = resolve_backup_path(record)
-        if filepath is not None and filepath.exists():
-            try:
-                filepath.unlink()
-            except OSError as e:
-                logger.error(f"Failed to delete file {filepath}: {e}")
-                return False
-
-        # Delete record
-        record.delete()
-        return True
+        return delete_backup_file_and_record(record)
 
     def get_backup_file(self, record: BackupRecord) -> Path | None:
         """Get the path to a backup file if it exists within the backup dir."""

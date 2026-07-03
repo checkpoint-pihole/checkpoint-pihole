@@ -189,7 +189,12 @@ def delete_backup(request, backup_id):
 
     try:
         service = BackupService(config)
-        service.delete_backup(record)
+        deleted = service.delete_backup(record)
+        if not deleted:
+            return JsonResponse(
+                {"success": False, "error": "Backup file could not be deleted; it will be retried"},
+                status=500,
+            )
         return JsonResponse({"success": True})
     except Exception as e:
         logger.exception("Backup deletion error")
@@ -253,10 +258,17 @@ def download_backup(request, backup_id):
 
 
 def _get_client_ip(request):
-    """Get client IP from request."""
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
+    """Get client IP from request.
+
+    X-Forwarded-For is only trusted when settings.TRUST_PROXY is enabled. On a
+    directly-exposed container the header is attacker-controlled, so trusting it
+    unconditionally would let a client rotate it to defeat the per-IP login
+    rate limit.
+    """
+    if settings.TRUST_PROXY:
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
 
 
@@ -282,6 +294,8 @@ def login_view(request):
             if check_password(form.cleaned_data["password"], settings.APP_PASSWORD_HASH):
                 # Clear attempts on success
                 cache.delete(cache_key)
+                # Rotate the session key on privilege change to prevent session fixation
+                request.session.cycle_key()
                 request.session["authenticated"] = True
                 return redirect("dashboard")
             else:

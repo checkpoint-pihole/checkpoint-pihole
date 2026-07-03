@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import responses
 
 from backup.models import BackupRecord
 from backup.services.backup_service import BackupService
@@ -191,6 +192,34 @@ class TestBackupServiceCreateBackup:
             for record in successful_records:
                 if record.file_path:
                     assert not Path(record.file_path).exists() or Path(record.file_path).stat().st_size > 0
+
+    @responses.activate
+    def test_create_backup_rejects_non_zip_download(self, pihole_config, temp_backup_dir):
+        """A non-ZIP teleporter response should produce a failed record, not a success.
+
+        Regression: the client returned any 200 body as-is, so a proxy/error page
+        was stored as a status='success' backup.
+        """
+        responses.add(
+            responses.POST,
+            "https://pihole.local/api/auth",
+            json={"session": {"sid": "test-session", "validity": 300}},
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://pihole.local/api/teleporter",
+            body=b"<html>not a zip</html>",
+            status=200,
+            content_type="text/html",
+        )
+
+        service = BackupService(pihole_config)
+        with pytest.raises(ValueError):
+            service.create_backup()
+
+        assert not BackupRecord.objects.filter(config=pihole_config, status="success").exists()
+        assert BackupRecord.objects.filter(config=pihole_config, status="failed").exists()
 
     def test_create_backup_failure_updates_config_error(self, pihole_config, temp_backup_dir):
         """create_backup failure should update config.last_backup_error."""
