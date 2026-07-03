@@ -10,7 +10,9 @@ services:
     env_file:
       - .env
     environment:
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production-use-long-random-string}
+      # Empty when unset so settings.py auto-generates and persists a random key
+      # in the ./data volume (a public placeholder would defeat that).
+      - SECRET_KEY=${SECRET_KEY:-}
       - TIME_ZONE=${TIME_ZONE:-UTC}
       - TZ=${TIME_ZONE:-UTC}
       - REQUIRE_AUTH=${REQUIRE_AUTH:-false}

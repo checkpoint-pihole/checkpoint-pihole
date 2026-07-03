@@ -329,6 +329,26 @@ class TestDownloadBackupEndpoint:
         response = client.get(url)
         assert response.status_code == 404
 
+    def test_refuses_file_outside_backup_dir(
+        self, client, pihole_config, temp_backup_dir, tmp_path, auth_disabled_settings
+    ):
+        """Download must refuse a file_path resolving outside BACKUP_DIR (redirect)."""
+        # Real, existing file outside the configured backup dir.
+        outside_file = tmp_path / "outside.zip"
+        outside_file.write_bytes(b"PK\x03\x04outside")
+
+        record = BackupRecordFactory(
+            config=pihole_config,
+            filename="outside.zip",
+            file_path=str(outside_file),
+        )
+
+        url = reverse("download_backup", args=[record.id])
+        response = client.get(url)
+
+        assert response.status_code == 302
+        assert response.url == reverse("dashboard")
+
 
 @pytest.mark.django_db
 class TestHealthCheckEndpoint:
