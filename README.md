@@ -4,6 +4,17 @@
 
 # Checkpoint Pi-hole
 
+<p align="center">
+<img src="https://img.shields.io/github/stars/checkpoint-pihole/checkpoint-pihole?style=for-the-badge&label=Stars&color=orange" alt="Stars">
+<a href="https://github.com/checkpoint-pihole/checkpoint-pihole/releases/latest"><img src="https://img.shields.io/github/v/release/checkpoint-pihole/checkpoint-pihole?style=for-the-badge&color=purple" alt="Version"></a>
+<a href="https://github.com/checkpoint-pihole/checkpoint-pihole/actions/workflows/build-and-push.yml"><img src="https://img.shields.io/github/actions/workflow/status/checkpoint-pihole/checkpoint-pihole/build-and-push.yml?style=for-the-badge&label=Build" alt="Build"></a>
+<a href="https://github.com/checkpoint-pihole/checkpoint-pihole/blob/main/LICENSE"><img src="https://img.shields.io/github/license/checkpoint-pihole/checkpoint-pihole?style=for-the-badge&label=License&color=green" alt="License"></a>
+</p>
+
+<p align="center">
+<a href="https://www.buymeacoffee.com/JMISm06AD"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee"></a>
+</p>
+
 A web application for backing up Pi-hole v6 instances via the Teleporter API. Runs as a single Docker container with a web UI and automated scheduler.
 
 **Requires Pi-hole v6** - Uses session-based authentication (not compatible with v5 API keys).
